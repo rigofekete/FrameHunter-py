@@ -1,15 +1,19 @@
 # probably will need this to run direct ffmpeg commands to generate high quality outputs 
 import subprocess
+import os
 
 import av
+import cv2
+
 import numpy as np
-import os
 import fractions
-import time
+
 import win32gui
 import ctypes
+
 import datetime
-import cv2
+import time
+
 from global_vars import PSCX2, PES2, WIDTH, HEIGHT, X, Y
 
 # COMMAND TO RUN FFMPEG FROM WINDOWS, WITH MAX COMPATIBILITY, FOR 15 SECONDS 
@@ -28,13 +32,6 @@ from global_vars import PSCX2, PES2, WIDTH, HEIGHT, X, Y
 # """.strip()
 #
 
-
-# def get_window_rect(window_title):
-#     hwnd = win32gui.FindWindow(None, window_title)
-#     if hwnd:
-#         return win32gui.GetWindowRect(hwnd)  # (left, top, right, bottom)
-#     return None
-#
 
 def get_dpi_aware_window_rect(title):
     hwnd = win32gui.FindWindow(None, title)
@@ -93,14 +90,18 @@ class ScreenRecorder:
 
         self.recording = False
         self.ffmpeg_process = None
-        self.output_file = None
 
         self.current_frame = None
         self.previous_frame = None
+        
         self.time_base = None
         self.start_time = None
+        self.current_pts = None
         self.last_pts = None
         self.frame_index = None
+
+        #NOTE: testing attribute, delete if pts testing fails 
+        self.last_recorded_time = None
 
     def capture_frames(self):
         global X, Y, WIDTH, HEIGHT
@@ -113,52 +114,58 @@ class ScreenRecorder:
 
 
 
-        rect = get_dpi_aware_window_rect(PES2)
-        # rect = get_dpi_aware_window_rect(PSCX2)
-        if rect:
-            print(f"Calculating rect....")
-            X, Y, right, bottom = rect
-
-            # # Region of the scoreboard of PES2
-            # X += 220
-            # Y += 220
-
-            # Region of the player name (bottom center) of PES2
-            X += 1090
-            Y += 1814
-
-            width =  right - X
-            height = bottom - Y
-            print(f"width {width} height {height}")
-        else:
-            print("rect is null")
-     
-        # Rescalling the input for specific frame location observation 
-        # Values for PES2 scoreboard
-        # WIDTH = width // 4 - 170
-        # HEIGHT  = height // 4 - 420
-
-        # Values for player name, center bottom of the screen
-        WIDTH = width // 2 - 630
-        HEIGHT  = height // 2 - 65
- 
-        # always making sure values are even!
-        WIDTH = WIDTH - (WIDTH % 2)
-        HEIGHT = HEIGHT - (HEIGHT % 2)
-
-        video_size = f'{WIDTH}x{HEIGHT}'
-        print(f'VIDEO SIZE: {video_size}')
-        print(f'Y and X SIZE: {Y} , {X}')
+        # TODO: REFACTOR ALL THIS LOGIC INTO A FUNCTION TO GET RID OF THESE EXPOSED CODE LINES IN HERE 
+        # rect = get_dpi_aware_window_rect(PES2)
+        # # rect = get_dpi_aware_window_rect(PSCX2)
+        # if rect:
+        #     print(f"Calculating rect....")
+        #     X, Y, right, bottom = rect
+        #
+        #     # TODO: Make a function or data structure to contain these different set of values
+        #     # # Region of the scoreboard of PES2
+        #     # X += 220
+        #     # Y += 220
+        #
+        #     # Region of the player name (bottom center) of PES2
+        #     X += 1090
+        #     Y += 1814
+        #
+        #     width =  right - X
+        #     height = bottom - Y
+        #     print(f"width {width} height {height}")
+        # else:
+        #     print("rect is null")
+        #
+        # # TODO: Make a function or data structure to contain these different set of values
+        # # Rescalling the input for specific frame location observation 
+        # # Values for PES2 scoreboard
+        # # WIDTH = width // 4 - 170
+        # # HEIGHT  = height // 4 - 420
+        #
+        # # Values for player name, center bottom of the screen 
+        # WIDTH = width // 2 - 630
+        # HEIGHT  = height // 2 - 65
+        #
+        # # always making sure values are even!
+        # WIDTH = WIDTH - (WIDTH % 2)
+        # HEIGHT = HEIGHT - (HEIGHT % 2)
+        #
+        # video_size = f'{WIDTH}x{HEIGHT}'
+        # print(f'VIDEO SIZE: {video_size}')
+        # print(f'Y and X SIZE: {Y} , {X}')
 
 
         self.input_container = av.open('desktop',
                                         format='gdigrab',
                                         mode='r',
                                         options={
-                                            'framerate': '30',
-                                            'offset_x': str(X),
-                                            'offset_y': str(Y),
-                                            'video_size': video_size,  
+                                            'framerate': '60',
+                                            # 'probesize': '100M',      # Larger buffer
+                                            # 'analyzeduration': '0',   # Skip analysis
+                                            # 'fflags': 'nobuffer',     # Reduce buffering
+                                            # 'offset_x': str(X),
+                                            # 'offset_y': str(Y),
+                                            # 'video_size': video_size,  
                                             # 'video_size': '1920x1080',  
                                             # 'video_size': f'{width}x{height}',  
                                             'show_region': '0',
@@ -166,8 +173,18 @@ class ScreenRecorder:
                                         }
                                 )
 
+        #NOTE: To observ how many FPS are coming from the gdigrab input stream, use this:
+        # count = 0
+        # start = time.time()
+        # for frame in self.input_container.decode(video=0):
+        #     count += 1
+        #     now = time.time()
+        #     if now - start >= 5:
+        #         break
 
-    # TODO: Rename this function to somethig like prepare output
+        # fps = count / (now - start)
+        # print(f"Actual input FPS from gdigrab: {fps:.2f}")
+      
     def setup_output(self):
         if not self.output_ready:
             try:
@@ -175,7 +192,7 @@ class ScreenRecorder:
                 output_path = os.path.abspath(f'output\\{now}.mp4')
                 self.output_container = av.open(output_path, 'w')
 
-                self.output_stream = self.output_container.add_stream('libx264', rate=30)
+                self.output_stream = self.output_container.add_stream('libx264', rate=60)
                 self.output_stream.width = self.input_container.streams.video[0].width
                 self.output_stream.height = self.input_container.streams.video[0].height
                 self.output_stream.pix_fmt = 'yuv420p'
@@ -203,6 +220,7 @@ class ScreenRecorder:
                     # 'aq_mode': '1',            # Adaptive quantization
                     # 'aq_strength': '1.0'       # AQ strength
                 }
+             
 
                 self.output_ready = True
                 print("Output stream is set up and ready")
@@ -213,12 +231,6 @@ class ScreenRecorder:
                 import traceback
                 traceback.print_exc()
                 return False
-
-
-    # def stop_recording(self):
-    #     if self.recording:
-    #         # self.output_container.close()
-    #         self.recording = False
 
     def start_recording(self):
         command = [
@@ -238,14 +250,13 @@ class ScreenRecorder:
                                                    stdout=subprocess.PIPE,
                                                    stderr=subprocess.PIPE,
                                                    text=True,
-                                                   bufsize=0
+                                                   # bufsize=0
                                    )
             self.recording = True
             print('FFmpeg command executed successfully!')
             print('Recording screen.....')
             return True
 
-            # print('Output:', self.ffmpeg_process.stdout)
         
         except Exception as e:
             print(f'Failed to start recording with FFmpeg: {e}')
@@ -261,6 +272,7 @@ class ScreenRecorder:
         try:
             if self.recording:
                 print('Sending "q" to stop recording...')
+
                 self.ffmpeg_process.stdin.write('q\n')
                 self.ffmpeg_process.stdin.flush()
                 
@@ -273,7 +285,6 @@ class ScreenRecorder:
                     # TODO: check if the timeout value is appropriate for our program logic
                     stdout, stderr = self.ffmpeg_process.communicate(timeout=2)
 
-                    # print('Recording saved to ....')
 
                 except subprocess.TimeoutExpired:
                     print(f"FFmpeg didn't respond to 'q', force terminating...")
@@ -296,18 +307,24 @@ class ScreenRecorder:
             return False
 
     def manual_output_config(self):
-        self.time_base = fractions.Fraction(1, 30)
+        self.time_base = fractions.Fraction(1, 60)
         self.output_stream.time_base = self.time_base
 
         self.start_time = time.time()
+
+        self.current_pts = -1
         self.last_pts = -1
 
         self.frame_index = 0 
 
+
     # TO BE USED WHEN ANALYZING LOCAL REGION FRAMES FOR TESTING 
     def region_check(self, img_arr, frame):
+        
         # ALSO TO BE USED FOR OBSERVING REGION FRAME VALUES CLOSELY 
         # if self.constant_changes(img_arr):
+
+
         if self.detect_changes_manual(img_arr, action='start'):
             print(f"""
             DETECTED CURRENT FRAME: {np.sum(self.current_frame)}
@@ -315,35 +332,27 @@ class ScreenRecorder:
             """)
 
             if not self.recording:
-                #using ffmpeg window command to test recording from here 
+                #NOTE: USING FFMPEG WINDOW COMMAND TO TEST RECORDING FROM HERE. 
+                # WE NEED TO DECIDED WERE TO PUT THIS START FFMPEG CMD RECORD TRIGGER
                 self.start_recording()
             print("Recording")
 
         else:
             if self.recording:
-                if self.detect_changes_manual(img_arr, action='stop'):
-                    self.stop_recording()
-                    # self.recording = False
-                    # print('Stop recording')
-                    # print("No changes, steady.")
-
-        # else:
-        #     if self.recording:
-        #         self.stop_recording()
-        #         print("Pattern matched. Stop recording")
+                self.stop_recording()
 
 
         if self.recording:
             now = time.time()
             elapsed_time = now - self.start_time
 
-            current_pts = int(elapsed_time / float(self.time_base))  
+            self.current_pts = int(elapsed_time / float(self.time_base))  
             # print(f"ELAPSED TIME: {elapsed_time} == CURRENT PTS: {current_pts}")
 
-            if current_pts <= self.last_pts:
+            if self.current_pts <= self.last_pts:
                 return
 
-            frame.pts = current_pts 
+            frame.pts = self.current_pts 
             frame.time_base = self.time_base
 
             packet = self.output_stream.encode(frame)
@@ -351,14 +360,62 @@ class ScreenRecorder:
 
             self.output_container.mux(packet)
 
-            self.last_pts = current_pts 
+            self.last_pts = self.current_pts 
 
 
         self.previous_frame = img_arr
         # self.previous_frame = scoreboard
 
 
+    # def record_frames_manual(self, img_arr, frame):
+    #     # TODO: Refactor this recording logic and fix the frame detection
+    #     # self.recording = False
+    #     # if self.detect_changes_cmd(scoreboard):
+    #     # if self.detect_changes_cmd(img_arr):
+    #     if self.constant_changes(img_arr):
+    #
+    #         print(f"""
+    #         CURRENT FRAME: {np.sum(self.current_frame)}
+    #         PREVIOUS FRAME: {np.sum(self.previous_frame)}
+    #         """)
+    #
+    #         frame.pts = self.frame_index
+    #         frame.time_base = self.time_base
+    #
+    #         packet = self.output_stream.encode(frame)
+    #         self.output_container.mux(packet)
+    #
+    #         self.frame_index +=1 
+    #     else:
+    #         print('No frame changes detected, not recording')
+    #
+    #     self.previous_frame = img_arr
 
+    def record_frames_manual(self, img_arr, frame):
+        now = time.time()
+        elapsed_time = now - self.start_time
+
+        # Compute pts based on actual elapsed time
+        current_pts = int(elapsed_time / float(self.time_base))
+
+        # Skip duplicate PTS
+        if current_pts <= self.last_pts:
+            return
+
+        if self.constant_changes(img_arr):
+            frame.pts = current_pts
+            frame.time_base = self.time_base
+
+            packet = self.output_stream.encode(frame)
+            self.output_container.mux(packet)
+
+            self.last_pts = current_pts
+            print(f"Encoded frame with PTS={frame.pts}")
+        else:
+            print("No frame changes detected, not recording")
+
+        self.previous_frame = img_arr
+    #
     def process_frames(self):
         # TODO: Maybe it does not make any sense to have this check here, we should only start recording? 
         if not self.output_ready:
@@ -370,70 +427,12 @@ class ScreenRecorder:
             while True:
                 try:
                     for frame in self.input_container.decode(video=0):
-                        # current_time = time.time()
-
-
                         # TODO: Check why do we need to use numpy to convert frame to array 
                         img_arr = frame.to_ndarray(format='bgr24') 
-                        # print(f'X and Y: {X} , {Y}')
-                        # print(f'WIDTH and HEIGHT: {WIDTH} , {HEIGHT}')
 
-                        # extract the scoreboard pixel region of the input stream so we can detect changes
-                        # TODO: Check how these 3d arrays work and how they store the rgb pixel values
-                        # scoreboard = img_arr[Y:Y+HEIGHT, X:X+WIDTH]
-                        # print(f'SCOREBOARD: {scoreboard}')
-
-                        # # Frame resizing logic with OpenCV cv2 lib. Keeping this here as doc only 
-                        # new_width = .width + 1000
-                        # new_height = frame.height + 1000 
-                        #
-                        # resized_arr = cv2.resize(img_arr, (new_width, new_height))
-                        #
-                        # new_frame = av.VideoFrame.from_ndarray(resized_arr, format='bgr24')
-                        # frame = new_frame
-
-
-                        # self.recording = False
-                        # if self.detect_changes_cmd(scoreboard):
-
-                        # if self.detect_changes_cmd(img_arr):
-                        #
-                        #     print(f"""
-                        #     CURRENT FRAME: {np.sum(self.current_frame)}
-                        #     PREVIOUS FRAME: {np.sum(self.previous_frame)}
-                        #     """)
-                        #     # if not self.recording:
-                        #     for i in range(1500):
-                        #         print("reckecking frame")
-                        #         if not self.detect_changes_cmd(img_arr):
-                        #             self.recording = False
-                        #             break
-                        #         self.recording = True
-                        #
-                        #     if self.recording:
-                        #         print("Change detected. Start recording")
-                        #         self.recording = True
-                        #         self.start_recording()
-                        #         time.sleep(2)
-                        #     else:
-                        #         print("false alert frame value")
-                        #     # self.recording = True
-                        #
-                        # else:
-                        #     if self.recording:
-                        #         print(f"""
-                        #         CURRENT FRAME: {np.sum(self.current_frame)}
-                        #         PREVIOUS FRAME: {np.sum(self.previous_frame)}
-                        #         """)
-                        #         self.recording = False
-                        #         self.stop_recording()
-                        #         print('Stop recording')
-                        #     # print("No changes, steady.")
-                        #
-
-
-                        self.region_check(img_arr, frame)
-
+                        # list of different function calls for different purposes
+                        self.record_frames_manual(img_arr, frame)
+                        # self.region_check(img_arr, frame)
 
                 except av.BlockingIOError:
                     pass
@@ -459,6 +458,7 @@ class ScreenRecorder:
             else:
                 return False
 
+        # TODO: Think about how we could use these function parameter keys or if they are useful at all 
         if action == 'stop':
             # if np.sum(current_frame) < 430000:
             if np.sum(current_frame) < 6900:
@@ -468,10 +468,6 @@ class ScreenRecorder:
 
         return False
 
-        # return True
-
-        # diff = np.sum(np.abs(current_frame - self.previous_frame))
-        # return diff >  1 
 
     # TO BE USED TO CHECK REGION PIXEL COUNT DURING TESTING
     def constant_changes(self, current_frame):
@@ -485,10 +481,7 @@ class ScreenRecorder:
         return diff >  1 
         
 
-
-
-
-
+    # TODO: Think of this is of any use after we refactored the start/stop recording logic
     def detect_changes_cmd(self, current_frame):
         # if self.previous_frame is None:
         #     print("previous_frame is None")
@@ -500,19 +493,12 @@ class ScreenRecorder:
 CURRENT FRAME: {np.sum(current_frame)}
 PREVIOUS FRAME: {np.sum(self.previous_frame)}
 """)
-
         
-        # if np.sum(current_frame) >= 6000000 and np.sum(current_frame) < 6001000:
-        #     return False
-        # elif np.sum(current_frame) > 6770000:
-        #     return False
         if np.sum(self.current_frame) > 5830000 and np.sum(self.current_frame) < 5940000:
             return True
         #
         if np.sum(current_frame) < 800000:
             return False
-
-        # return True
 
         return False
 
