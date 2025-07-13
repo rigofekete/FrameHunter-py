@@ -68,8 +68,9 @@ def get_dpi_aware_window_rect(title):
 def crop_regions(): 
     # TODO: IMPORTANT, handle errors for specific situations where the given coordinates
     # go beyond the available display margins
+
     # Crop the region of the player name (bottom center) of PES2
-    x_nameplate = global_vars.X - 10 
+    x_nameplate = global_vars.X - 420 
     y_nameplate = global_vars.Y + 1795
     # x_nameplate = X + 40    
     # y_nameplate = Y + 1795

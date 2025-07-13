@@ -1,10 +1,13 @@
 import subprocess
 import os
 import sys
+import threading
+import queue
 
 import av
 import cv2
 
+from collections import deque
 import numpy as np
 import fractions
 
@@ -18,7 +21,7 @@ import global_vars
 
 
 class ScreenRecorder:
-    def __init__(self):
+    def __init__(self, buffer_seconds=15, fps=30):
         self.input_container = None
         self.output_container = None
         self.output_stream = None
@@ -27,8 +30,27 @@ class ScreenRecorder:
 
         self.targets = []
 
-        self.isRecording = False
+        self.is_recording = False
         self.ffmpeg_process = None
+        
+        # circlar buffer attributes
+        self.buffer_seconds = buffer_seconds
+        self.fps = fps
+        self.max_buffer_frames = buffer_seconds * fps
+        self.frame_buffer = deque(maxlen=self.max_buffer_frames)
+        self.buffer_start_time = None
+        self.is_buffering = True
+        self.buffer_pts_counter = 0
+
+        self.buffer_lock = threading.Lock() 
+        self.frame_queue = queue.Queue()
+
+        # Buffer thread management
+        self.buffer_thread = None
+        self.stop_buffer_thread = threading.Event()
+        self.save_buffer_trigger = threading.Event()
+        self.is_buffer_thread_running = False
+
 
         self.current_frame = None
         self.previous_frame = None
@@ -38,80 +60,86 @@ class ScreenRecorder:
         self.start_time = None
         self.current_pts = None
         self.last_pts = None
-        self.frame_index = None
 
+        self.detection_count = 10
+        self.ok_detection = False
 
 
     def capture_frames(self):
-        # rect = get_dpi_aware_window_rect("Calculator")
-        # rect = get_dpi_aware_window_rect("Steam")
+        try:
+            # rect = get_dpi_aware_window_rect("Calculator")
+            # rect = get_dpi_aware_window_rect("Steam")
 
-        # rect = get_dpi_aware_window_rect("20068 - VLC media player")
-        # rect = get_dpi_aware_window_rect("WE6FE Classicos 2.0 (Hack Ed)")
-
-
-        # TODO: REFACTOR ALL THIS LOGIC INTO A FUNCTION TO GET RID OF THESE EXPOSED CODE LINES IN HERE 
-        rect = get_dpi_aware_window_rect(PES2)
-        # rect = get_dpi_aware_window_rect(WE6)
-        # rect = get_dpi_aware_window_rect(WE6FE)
-        # rect = get_dpi_aware_window_rect(PCSX2)
-        if rect:
-            print(f"Calculating rect....")
-            global_vars.X, global_vars.Y, right, bottom = rect
-
-            global_vars.WIDTH =  right - global_vars.X
-            global_vars.HEIGHT = bottom - global_vars.Y
-            print(f"width {global_vars.WIDTH} height {global_vars.HEIGHT}")
-        else:
-            print("rect is null")
-        
-        print(f'X : {global_vars.X}')
-        self.targets = crop_regions()
-        print(f'targets 0 : {self.targets[0]}')
-
-        video_size = f'{global_vars.WIDTH}x{global_vars.HEIGHT}'
-        print(f'VIDEO SIZE: {video_size}')
-        print(f'X and Y SIZE: {global_vars.X} , {global_vars.Y}')
+            # rect = get_dpi_aware_window_rect("20068 - VLC media player")
+            # rect = get_dpi_aware_window_rect("WE6FE Classicos 2.0 (Hack Ed)")
 
 
-        self.input_container = av.open('desktop',
-                                        format='gdigrab',
-                                        mode='r',
-                                        options={
-                                            'framerate': '60',
-                                            # 'probesize': '100M',      # Larger buffer
-                                            # 'analyzeduration': '0',   # Skip analysis
-                                            # 'fflags': 'nobuffer',     # Reduce buffering
-                                            'offset_x': str(global_vars.X),
-                                            'offset_y': str(global_vars.Y),
-                                            'video_size': video_size,  
-                                            # 'video_size': '1920x1080',  
-                                            # 'video_size': f'{width}x{height}',  
-                                            'show_region': '0',
-                                            # 'draw_mouse': '0',
-                                        }
-                                )
+            # TODO: REFACTOR ALL THIS LOGIC INTO A FUNCTION TO GET RID OF THESE EXPOSED CODE LINES IN HERE 
+            rect = get_dpi_aware_window_rect(PES2)
+            # rect = get_dpi_aware_window_rect(WE6)
+            # rect = get_dpi_aware_window_rect(WE6FE)
+            # rect = get_dpi_aware_window_rect(PCSX2)
+            if rect:
+                print(f"Calculating rect....")
+                global_vars.X, global_vars.Y, right, bottom = rect
 
-        #NOTE: TEST BLOCK - To observ how many FPS are coming from the gdigrab input stream, use this:
-        # count = 0
-        # start = time.time()
-        # for frame in self.input_container.decode(video=0):
-        #     count += 1
-        #     now = time.time()
-        #     if now - start >= 5:
-        #         break
+                global_vars.WIDTH =  right - global_vars.X
+                global_vars.HEIGHT = bottom - global_vars.Y
+                print(f"width {global_vars.WIDTH} height {global_vars.HEIGHT}")
+            else:
+                print("rect is null")
+            
+            self.targets = crop_regions()
+            print(f'targets 0 : {self.targets[0]}')
 
-        # fps = count / (now - start)
-        # print(f"Actual input FPS from gdigrab: {fps:.2f}")
+            video_size = f'{global_vars.WIDTH}x{global_vars.HEIGHT}'
+            print(f'VIDEO SIZE: {video_size}')
+            print(f'X and Y SIZE: {global_vars.X} , {global_vars.Y}')
+
+
+            self.input_container = av.open('desktop',
+                                            format='gdigrab',
+                                            mode='r',
+                                            options={
+                                                'framerate': '30',
+                                                # 'probesize': '100M',      # Larger buffer
+                                                # 'analyzeduration': '0',   # Skip analysis
+                                                # 'fflags': 'nobuffer',     # Reduce buffering
+                                                'offset_x': str(global_vars.X),
+                                                'offset_y': str(global_vars.Y),
+                                                'video_size': video_size,  
+                                                # 'video_size': '1920x1080',  
+                                                # 'video_size': f'{width}x{height}',  
+                                                'show_region': '0',
+                                                # 'draw_mouse': '0',
+                                            }
+                                    )
+
+            # # NOTE: TEST BLOCK - To observ how many FPS are coming from the gdigrab input stream, use this:
+            # count = 0
+            # start = time.time()
+            # for frame in self.input_container.decode(video=0):
+            #     count += 1
+            #     now = time.time()
+            #     if now - start >= 5:
+            #         break
+            #
+            # fps = count / (now - start)
+            # print(f"Actual input FPS from gdigrab: {fps:.2f}")
+        except Exception as e:
+            print(f'Error setting up window config and input container and stream: {e}')
+            sys.exit(1)
       
     def setup_output(self):
         if not self.output_ready:
             try:
-                now = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
+                # now = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
+                now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                # TODO: Add a check to confirm if folder already exists 
                 output_path = os.path.abspath(f'output\\{now}.mp4')
                 self.output_container = av.open(output_path, 'w')
 
-                self.output_stream = self.output_container.add_stream('libx264', rate=60)
+                self.output_stream = self.output_container.add_stream('libx264', rate=30)
                 self.output_stream.width = self.input_container.streams.video[0].width
                 self.output_stream.height = self.input_container.streams.video[0].height
                 self.output_stream.pix_fmt = 'yuv420p'
@@ -151,11 +179,13 @@ class ScreenRecorder:
                 traceback.print_exc()
                 return False
 
+
+    # FFmpeg cmd recording functions
     def start_recording(self):
         command = [
                 'ffmpeg',
                 '-f', 'lavfi',
-                '-i', 'ddagrab=framerate=60',
+                '-i', 'ddagrab=framerate=30',
                 '-c:v', 'h264_nvenc',
                 '-cq', '18',
                 '-y',
@@ -171,7 +201,7 @@ class ScreenRecorder:
                                                    text=True,
                                                    # bufsize=0
                                    )
-            self.isRecording = True
+            self.is_recording = True
             print('FFmpeg command executed successfully!')
             print('Recording screen.....')
             return True
@@ -189,7 +219,7 @@ class ScreenRecorder:
             return False
 
         try:
-            if self.isRecording:
+            if self.is_recording:
                 print('Sending "q" to stop recording...')
 
                 self.ffmpeg_process.stdin.write('q\n')
@@ -210,7 +240,7 @@ class ScreenRecorder:
                     self.ffmpeg_process.terminate()
                     self.ffmpeg_process.wait()
 
-                self.isRecording = False
+                self.is_recording = False
                 self.ffmpeg_process = None
 
                 print('Recording stopped successfully')
@@ -222,20 +252,22 @@ class ScreenRecorder:
             if self.ffmpeg_process:
                 self.ffmpeg_process.terminate()
                 self.ffmpeg_process = None
-            self.isRecording = False
+            self.is_recording = False
             return False
 
+
+
+
+    # Output pts and time base pre configuration 
     def manual_output_config(self):
-        self.time_base = fractions.Fraction(1, 60)
-        self.output_stream.time_base = self.time_base
+        if self.output_ready:
+            self.time_base = fractions.Fraction(1, 30)
+            self.output_stream.time_base = self.time_base
 
-        self.start_time = time.time()
+            self.start_time = time.time()
 
-        self.current_pts = -1
-        self.last_pts = -1
-
-        self.frame_index = 0 
-
+            self.current_pts = -1
+            self.last_pts = -1
 
 
 
@@ -259,7 +291,7 @@ class ScreenRecorder:
         if self.current_pts <= self.last_pts:
             return
 
-        self.isRecording = True
+        self.is_recording = True
         print(f"""
 CURRENT FRAME: {np.sum(img_to_inspect)}
 PREVIOUS FRAME: {np.sum(self.previous_frame)}
@@ -284,9 +316,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
         self.previous_frame = img_to_inspect
 
 
-
-
-
+    # Record to output from detected change, without circle buffer. 
     def record_frames_manual(self, img_arr, frame):
         now = time.time()
         elapsed_time = now - self.start_time
@@ -299,7 +329,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
 
         # if self.detect_changes_cmd(img_arr):
         if self.detect_changes_manual(img_arr):
-            self.isRecording = True
+            self.is_recording = True
             print(f"""
     CURRENT FRAME: {np.sum(img_arr)}
     PREVIOUS FRAME: {np.sum(self.previous_frame)}
@@ -316,8 +346,8 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             print(f"Encoded frame with PTS={frame.pts}")
         else:
             print("No frame changes detected, not recording")
-            if self.isRecording:
-                self.isRecording = False
+            if self.is_recording:
+                self.is_recording = False
                 for packet in self.output_stream.encode():
                     self.output_container.mux(packet)
                 self.output_ready = False
@@ -327,7 +357,223 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                 return
 
         self.previous_frame = img_arr
+
+
+
+
+
+
+    def circle_buffer_frames(self, img_arr, frame):
+        # NOTE: With the introduction of the circular buffer we wont be calculating new current pts here
+        # any longer. The current pts is the last value received in the fill buffer function so we can have
+        # continuity
+        # now = time.time()
+        # elapsed_time = now - self.start_time
+        #
+        # self.current_pts += int(elapsed_time / float(self.time_base))
+        # print(f'Elapsed_time: {elapsed_time} - Timebase {self.time_base} - Current pts: {current_pts}')
+        print(f"""
+        CURRENT PTS: {self.current_pts}
+        LAST PTS: {self.last_pts}
+        """)
+
+        # if self.current_pts <= self.last_pts and not self.ok_detection:
+        #     return False
+
+
+
+        # if self.detect_changes_cmd(img_arr):
+        if self.detect_changes_manual(img_arr):
+            if self.ok_detection:
+                if not self.is_recording:
+                # if not self.save_buffer_trigger:
+                    self.save_buffer_trigger.set()
+                    print('Detection triggered! Saving buffer....')
+
+                self.ok_detection = True
+                self.is_recording = True
+
+                print(f"""
+        CURRENT FRAME: {np.sum(img_arr)}
+        PREVIOUS FRAME: {np.sum(self.previous_frame)}
+        """)
+                
+                print('Saving live recording to the main thread ouput container')
+
+                now = time.time()
+                elapsed_time = now - self.start_time
+
+                self.current_pts = int(elapsed_time / float(self.time_base))
+
+                frame.pts = self.current_pts
+                frame.time_base = self.time_base
+
+                packet = self.output_stream.encode(frame)
+                self.output_container.mux(packet)
+
+                self.last_pts = self.current_pts
+
+                # self.previous_frame = img_arr
+                print(f"Encoded frame with PTS={frame.pts}")
+                # return True
+            else:
+                self.detection_count -= 1
+                if self.detection_count > 0:
+                    print(f'double checking region frame count {self.detection_count}x')
+                    # self.previous_frame = img_arr
+                    return False
+                else:
+                    self.ok_detection = True
+            
+        else:
+            print("No frame changes detected, not recording")
+            if self.is_recording:
+                self.is_recording = False
+                self.ok_detection = False
+                # self.is_buffering = True
+                # self.buffer_start_time = time.time()
+                # self.current_pts = 0
+
+                for packet in self.output_stream.encode():
+                    self.output_container.mux(packet)
+                self.output_ready = False
+                self.output_container.close()
+                self.output_container = None
+                self.output_stream = None
+        
+        # self.buffer_start_time = time.time()
+        self.detection_count = 10
+        self.previous_frame = img_arr
     
+
+
+    
+    #############################
+    ## BUFFER THREAD FUNCTIONS ##
+    #############################
+
+    def start_buffer_thread(self):
+        try:
+            if not self.is_buffer_thread_running:
+                self.stop_buffer_thread.clear()
+                self.buffer_thread = threading.Thread(target=self._fill_buffer_thread, daemon=True)
+                print('Buffer thread started')
+                self.buffer_thread.start()
+                self.is_buffer_thread_running = True
+                self.buffer_start_time = time.time()
+        except Exception as e:
+            print(f'Error starting buffer thread: {e}')
+
+
+
+    def _fill_buffer_thread(self):
+        print('Fill buffer for continuous buffer management started in new thread')
+        while not self.stop_buffer_thread.is_set():
+            try:
+                # Check for save trigger first, outside of frame processing
+                if self.save_buffer_trigger.is_set():
+                    try:
+                        self._save_buffer_to_file()
+                        self.save_buffer_trigger.clear()
+                    except Exception as e:
+                        print(f'Error in save buffer: {e}')
+                        # Don't let save buffer errors kill the thread
+                        self.save_buffer_trigger.clear()  # Clear trigger anyway
+                try:
+                    frame = self.frame_queue.get(timeout=0.1)
+                        
+                    with self.buffer_lock:
+                        print('filling buffer....')
+                        now = time.time()
+                        elapsed_time = now - self.buffer_start_time
+                        buffer_pts = int(elapsed_time / float(self.time_base)) 
+                        # TODO: Check if we can populate the pts of the circular buffer with modulo wrap 
+                        # buffer_pts = self.buffer_pts_counter % self.max_buffer_frames
+
+                        frame_data = {
+                                'frame': frame,
+                                'timestamp': time.time(), 
+                                'pts': buffer_pts,
+                                # 'pts': self.current_pts,
+                                'time_base': self.time_base
+                        }
+
+                        self.frame_buffer.append(frame_data)
+
+                        # TODO: Check if we can populate the pts of the circular buffer with modulo wrap 
+                        # self.buffer_pts_counter += 1
+                        # if self.buffer_pts_counter >= self.max_buffer_frames:
+                        #     self.buffer_pts_counter = 0
+
+                except queue.Empty:
+                    continue # no frame availabe, keep looping 
+                except Exception as e:
+                    print(f'Fill buffer thread error: {e}')
+
+            except Exception as e:
+                print(f'Save buffer trigger error: {e}')
+
+        print('Buffer thread stopped')
+
+
+
+
+
+    def _save_buffer_to_file(self):
+        print('Save current buffer to pre-event file')
+        with self.buffer_lock:
+            if not self.frame_buffer:
+                print('Buffer is empy, nothing to save')
+                return
+
+            print('Entering the save buffer area...')
+            
+            try:
+                print('Entering the try scope of the save buffer file')
+                timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+                output_path = os.path.abspath(f'output\\pre-event-{timestamp}.mp4')
+
+                buffer_output_container = av.open(output_path, 'w')
+
+                buffer_output_stream = buffer_output_container.add_stream('libx264', rate=30)
+                buffer_output_stream.width = self.input_container.streams.video[0].width
+                buffer_output_stream.height = self.input_container.streams.video[0].height
+                buffer_output_stream.pix_fmt = 'yuv420p'
+                # NOTE: 
+                # buffer_output_stream.codec_context.bit_rate = 2000000  # 2Mbps
+
+                sorted_frames = sorted(self.frame_buffer, key=lambda x: x['pts'])
+
+                print(f'Saving buffer with {len(sorted_frames)} frames')
+
+                # NOTE: skip the last 25 buffer frames to record exactly up until the end of the play
+                for frame_data in sorted_frames[:-25]:
+                    frame = frame_data['frame']
+                    frame.pts = frame_data['pts']
+                    frame.time_base = frame_data['time_base']
+                    
+                    packet = buffer_output_stream.encode(frame)
+                    buffer_output_container.mux(packet)
+                    print(f'Encoded buffered frame with PTS={frame.pts}')
+
+                # self.current_pts = sorted_frames[-1]['pts']
+                # print(f'Last pts from the sorted frames buffer assigned to current pts: {self.current_pts}')
+
+                self.frame_buffer.clear()
+
+                for packet in buffer_output_stream.encode():
+                    buffer_output_container.mux(packet)
+                buffer_output_container.close()
+
+                # self.buffer_start_time = 0
+
+                print(f'Successfully saved {len(sorted_frames)} frames from buffer')
+
+            except Exception as e:
+                print(f'Error saving buffer: {e}')
+
+
+
 
 
 
@@ -336,6 +582,9 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
         # if not self.output_ready:
         self.setup_output()
         self.manual_output_config()
+
+        # Start buffer thread 
+        self.start_buffer_thread()
 
         try:
             while True:
@@ -351,32 +600,52 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                         height = self.targets[0]['height']
                         nameplate_region = img_arr[y:y+height, x:x+width]
 
+                        try:
+                            self.frame_queue.put_nowait(frame)
+                        except queue.Full:
+                            print('Buffer queue full, skipping frame')
+                            pass
+
+                        # if self.is_buffering:
+                        #     print(f'filling the {self.buffer_seconds} second buffer')
+                        #     self.fill_buffer(frame)
+                        #     # print(f'Current buffer content: {self.frame_buffer}')
+                            
+
                         # LIST OF DIFFERENT FUNCTION CALLS FOR DIFFERENT PURPOSES
                         # self.record_frames_manual(img_arr, frame)
-                        self.record_frames_manual(nameplate_region, frame)
+                        # self.record_frames_manual(nameplate_region, frame)
+                        self.circle_buffer_frames(nameplate_region, frame)
                         # self.region_check(nameplate_region, frame, crop='yes')
 
-                        if not self.isRecording:
+                        if not self.is_recording and not self.output_ready:
                             self.setup_output()
                             self.manual_output_config()
+
 
                 except av.BlockingIOError:
                     print('Blocking IO Error')
                     pass
                 except Exception as e:
-                    if self.isRecording and self.output_container:
+                    if self.is_recording and self.output_container:
                         print(f'Error processing frame: {e}')
                         print('Closing output container')
                         try:
-                            self.isRecording = False
+                            self.is_recording = False
                             self.output_ready = False
+                            self.input_container.close()
                             self.output_container.close()
-                            pass
+                            sys.exit(1)
+                            # pass
                         except:
-                            pass
+                            self.input_container.close()
+                            sys.exit(1)
+                            # pass
                     else:
                         print(f'Error processing frame: {e}')
-                        pass
+                        self.input_container.close()
+                        sys.exit(1)
+                        # pass
         except KeyboardInterrupt:
             print("Recording stopped by user")
         
@@ -404,19 +673,37 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
 CURRENT FRAME: {np.sum(self.current_frame)}
 PREVIOUS FRAME: {np.sum(self.previous_frame)}
 """)
+        # # NOTE: name these magic number values to something like nameplate_green_min/max
+        # # pink nameplate
+        # if ((np.sum(self.current_frame) > 2210000 and np.sum(self.current_frame) < 2228000) or
+        # # blue nameplate night clear?
+        #     (np.sum(self.current_frame) > 2627000 and np.sum(self.current_frame) < 2640000) or
+        # # blue nameplate day clear 
+        #     (np.sum(self.current_frame) > 2614000 and np.sum(self.current_frame) < 2630000) or
+        # # green nameplate night clear 
+        #     (np.sum(self.current_frame) > 1582000 and np.sum(self.current_frame) < 1604000) or 
+        # # green nameplate day clear
+        #     (np.sum(self.current_frame) > 1571000 and np.sum(self.current_frame) < 1583000) or
+        # # yellow nameplate day clear
+        #     (np.sum(self.current_frame) > 2065000 and np.sum(self.current_frame) < 2083000) 
+        # ):
+        #
+
         # NOTE: name these magic number values to something like nameplate_green_min/max
         # pink nameplate
-        if ((np.sum(self.current_frame) > 2210000 and np.sum(self.current_frame) < 2228000) or
-        # blue nameplate night clear?
-            (np.sum(self.current_frame) > 2627000 and np.sum(self.current_frame) < 2640000) or
+        # if ((np.sum(self.current_frame) > 2210000 and np.sum(self.current_frame) < 2228000) or
+        # # pink nameplate day clear
+        if ((np.sum(self.current_frame) > 2524000 and np.sum(self.current_frame) < 2539000) or
+        # # blue nameplate night clear?
+        #     (np.sum(self.current_frame) > 2627000 and np.sum(self.current_frame) < 2640000) or
         # blue nameplate day clear 
-            (np.sum(self.current_frame) > 2614000 and np.sum(self.current_frame) < 2619999) or
+            (np.sum(self.current_frame) > 2985000 and np.sum(self.current_frame) < 2988000) or
         # green nameplate night clear 
-            (np.sum(self.current_frame) > 1583000 and np.sum(self.current_frame) < 1604000) or
-        # green nameplate day clear
-            (np.sum(self.current_frame) > 1571000 and np.sum(self.current_frame) < 1583000) or
+            (np.sum(self.current_frame) > 1874000 and np.sum(self.current_frame) < 1878000) or 
+        # # green nameplate day clear
+        #     (np.sum(self.current_frame) > 1571000 and np.sum(self.current_frame) < 1583000) or
         # yellow nameplate day clear
-            (np.sum(self.current_frame) > 2075000 and np.sum(self.current_frame) < 2083000) 
+            (np.sum(self.current_frame) > 2065000 and np.sum(self.current_frame) < 2083000) 
         ):
             return True
         else:
