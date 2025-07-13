@@ -17,7 +17,7 @@ I am planning to add a more visual example, using screenshots, to explain how th
 Future plans:
 
 * Rewrite the whole program in C for proper performance and execution 
-* Circular buffer logic in order to record last x seconds of the captured input whenever the detection is triggered (sort of an *Instant Replay* but with more custom options to manipulate).
+* ~~Circular buffer logic in order to record last x seconds of the captured input whenever the detection is triggered (sort of an *Instant Replay* but with more custom options to manipulate).~~ Implemented!
 * Possibility to merge all the generated output files into a single edited video, with different aesthetic possibilities. This is the main idea and goal of the whole thing. I want the captured video segments to be automatically edited with pre defined aesthetic options, behaving like an automated video editing tool.
 * Text detection
 * Set up instructions and requirements.txt
