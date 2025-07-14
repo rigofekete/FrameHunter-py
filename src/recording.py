@@ -1,4 +1,5 @@
 import subprocess
+
 import os
 import sys
 import threading
@@ -21,7 +22,7 @@ import global_vars
 
 
 class ScreenRecorder:
-    def __init__(self, buffer_seconds=15, fps=30):
+    def __init__(self, buffer_seconds=10, fps=30):
         self.input_container = None
         self.output_container = None
         self.output_stream = None
@@ -29,6 +30,7 @@ class ScreenRecorder:
         self.output_ready = False
 
         self.targets = []
+        self.pts_arr = []
 
         self.is_recording = False
         self.ffmpeg_process = None
@@ -39,8 +41,6 @@ class ScreenRecorder:
         self.max_buffer_frames = buffer_seconds * fps
         self.frame_buffer = deque(maxlen=self.max_buffer_frames)
         self.buffer_start_time = None
-        self.is_buffering = True
-        self.buffer_pts_counter = 0
 
         self.buffer_lock = threading.Lock() 
         self.frame_queue = queue.Queue()
@@ -51,7 +51,6 @@ class ScreenRecorder:
         self.save_buffer_trigger = threading.Event()
         self.is_buffer_thread_running = False
 
-
         self.current_frame = None
         self.previous_frame = None
         self.cropped_frame = None
@@ -60,10 +59,10 @@ class ScreenRecorder:
         self.start_time = None
         self.current_pts = None
         self.last_pts = None
+        self.fps = fps
 
         self.detection_count = 10
         self.ok_detection = False
-
 
     def capture_frames(self):
         try:
@@ -144,7 +143,7 @@ class ScreenRecorder:
                 self.output_stream.height = self.input_container.streams.video[0].height
                 self.output_stream.pix_fmt = 'yuv420p'
                 # self.output_stream.codec_context.time_base = fractions.Fraction(1, 30)
-                # self.output_stream.time_base = fractions.Fraction(1, 60)
+                # self.output_stream.time_base = fractions.Fraction(1, 30)
                 self.output_stream.codec_context.options = {
                     # 'rc': 'cbr',
                     # 'bitrate': '5000k'
@@ -259,11 +258,13 @@ class ScreenRecorder:
 
 
     # Output pts and time base pre configuration 
+    # TODO: Most likely we wont need this function at all, all of the attr can be set/reset in the const or if the
+    # live recording stops with the failed detection
     def manual_output_config(self):
         if self.output_ready:
             self.time_base = fractions.Fraction(1, 30)
             self.output_stream.time_base = self.time_base
-
+            # TODO check of this start time placed here is really only useful for the region check function for crops
             self.start_time = time.time()
 
             self.current_pts = -1
@@ -359,10 +360,8 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
         self.previous_frame = img_arr
 
 
-
-
-
-
+    # TODO: Rename this function since we are not dealing with the circular buffer, only triggering the thread
+    # and live recording to the main thread output file 
     def circle_buffer_frames(self, img_arr, frame):
         # NOTE: With the introduction of the circular buffer we wont be calculating new current pts here
         # any longer. The current pts is the last value received in the fill buffer function so we can have
@@ -386,9 +385,9 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
         if self.detect_changes_manual(img_arr):
             if self.ok_detection:
                 if not self.is_recording:
-                # if not self.save_buffer_trigger:
                     self.save_buffer_trigger.set()
-                    print('Detection triggered! Saving buffer....')
+                    self.start_time = time.time()
+                    print('Detection triggered! Saving buffer in buffer thread....')
 
                 self.ok_detection = True
                 self.is_recording = True
@@ -421,6 +420,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                 if self.detection_count > 0:
                     print(f'double checking region frame count {self.detection_count}x')
                     # self.previous_frame = img_arr
+                    self.start_time = 0
                     return False
                 else:
                     self.ok_detection = True
@@ -430,9 +430,6 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             if self.is_recording:
                 self.is_recording = False
                 self.ok_detection = False
-                # self.is_buffering = True
-                # self.buffer_start_time = time.time()
-                # self.current_pts = 0
 
                 for packet in self.output_stream.encode():
                     self.output_container.mux(packet)
@@ -441,7 +438,6 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                 self.output_container = None
                 self.output_stream = None
         
-        # self.buffer_start_time = time.time()
         self.detection_count = 10
         self.previous_frame = img_arr
     
@@ -475,6 +471,8 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                     try:
                         self._save_buffer_to_file()
                         self.save_buffer_trigger.clear()
+                        self.self.pts_arr.clear()
+                        self.buffer_start_time = time.time()
                     except Exception as e:
                         print(f'Error in save buffer: {e}')
                         # Don't let save buffer errors kill the thread
@@ -484,26 +482,24 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                         
                     with self.buffer_lock:
                         print('filling buffer....')
-                        now = time.time()
-                        elapsed_time = now - self.buffer_start_time
-                        buffer_pts = int(elapsed_time / float(self.time_base)) 
-                        # TODO: Check if we can populate the pts of the circular buffer with modulo wrap 
-                        # buffer_pts = self.buffer_pts_counter % self.max_buffer_frames
-
+                         
                         frame_data = {
                                 'frame': frame,
                                 'timestamp': time.time(), 
-                                'pts': buffer_pts,
-                                # 'pts': self.current_pts,
                                 'time_base': self.time_base
                         }
 
-                        self.frame_buffer.append(frame_data)
+                        # TODO: Check if we can refill this array of ordered pts after each 
+                        # save buffer trigger is set 
+                        # NOTE: Place computed pts in a separate list/array so we can assign them in order 
+                        # in the save buffer function (since we need to sort the frame buffer by timestamp)
+                        if len(self.pts_arr) <= self.max_buffer_frames:
+                            now = time.time()
+                            elapsed_time = now - self.buffer_start_time
+                            buffer_pts = int(elapsed_time / float(self.time_base))
+                            self.pts_arr.append(buffer_pts)
 
-                        # TODO: Check if we can populate the pts of the circular buffer with modulo wrap 
-                        # self.buffer_pts_counter += 1
-                        # if self.buffer_pts_counter >= self.max_buffer_frames:
-                        #     self.buffer_pts_counter = 0
+                        self.frame_buffer.append(frame_data)
 
                 except queue.Empty:
                     continue # no frame availabe, keep looping 
@@ -539,33 +535,34 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                 buffer_output_stream.width = self.input_container.streams.video[0].width
                 buffer_output_stream.height = self.input_container.streams.video[0].height
                 buffer_output_stream.pix_fmt = 'yuv420p'
-                # NOTE: 
+                # NOTE: Adding this bit rate generates a low quality output that resembles an old vhs, 
+                # should take advantage of this later :)
                 # buffer_output_stream.codec_context.bit_rate = 2000000  # 2Mbps
-
-                sorted_frames = sorted(self.frame_buffer, key=lambda x: x['pts'])
+                
+                sorted_frames = sorted(self.frame_buffer, key=lambda x: x['timestamp'])
 
                 print(f'Saving buffer with {len(sorted_frames)} frames')
+                self.buffer_start_time = time.time()
+
 
                 # NOTE: skip the last 25 buffer frames to record exactly up until the end of the play
-                for frame_data in sorted_frames[:-25]:
+                for i, frame_data in enumerate(sorted_frames[:-25]):
                     frame = frame_data['frame']
-                    frame.pts = frame_data['pts']
+                    # TODO: Check if we can refill this array of ordered pts after each save buffer trigger is set 
+                    frame.pts = self.pts_arr[i]
                     frame.time_base = frame_data['time_base']
                     
                     packet = buffer_output_stream.encode(frame)
                     buffer_output_container.mux(packet)
+
                     print(f'Encoded buffered frame with PTS={frame.pts}')
 
-                # self.current_pts = sorted_frames[-1]['pts']
-                # print(f'Last pts from the sorted frames buffer assigned to current pts: {self.current_pts}')
 
                 self.frame_buffer.clear()
 
                 for packet in buffer_output_stream.encode():
                     buffer_output_container.mux(packet)
                 buffer_output_container.close()
-
-                # self.buffer_start_time = 0
 
                 print(f'Successfully saved {len(sorted_frames)} frames from buffer')
 
@@ -581,6 +578,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
         # TODO: Maybe it does not make any sense to have this check here, we should only start recording? 
         # if not self.output_ready:
         self.setup_output()
+        # TODO: Recheck if we really need this function at all
         self.manual_output_config()
 
         # Start buffer thread 
@@ -606,12 +604,6 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                             print('Buffer queue full, skipping frame')
                             pass
 
-                        # if self.is_buffering:
-                        #     print(f'filling the {self.buffer_seconds} second buffer')
-                        #     self.fill_buffer(frame)
-                        #     # print(f'Current buffer content: {self.frame_buffer}')
-                            
-
                         # LIST OF DIFFERENT FUNCTION CALLS FOR DIFFERENT PURPOSES
                         # self.record_frames_manual(img_arr, frame)
                         # self.record_frames_manual(nameplate_region, frame)
@@ -620,6 +612,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
 
                         if not self.is_recording and not self.output_ready:
                             self.setup_output()
+                            # TODO: Recheck if we really need this function at all
                             self.manual_output_config()
 
 
@@ -690,20 +683,22 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
         #
 
         # NOTE: name these magic number values to something like nameplate_green_min/max
-        # pink nameplate
-        # if ((np.sum(self.current_frame) > 2210000 and np.sum(self.current_frame) < 2228000) or
         # # pink nameplate day clear
-        if ((np.sum(self.current_frame) > 2524000 and np.sum(self.current_frame) < 2539000) or
+        # if ((np.sum(self.current_frame) > 2524000 and np.sum(self.current_frame) < 2539000) or
+        # pink nameplate night clear
+        if ((np.sum(self.current_frame) > 2510000 and np.sum(self.current_frame) < 2535000) or
         # # blue nameplate night clear?
         #     (np.sum(self.current_frame) > 2627000 and np.sum(self.current_frame) < 2640000) or
         # blue nameplate day clear 
             (np.sum(self.current_frame) > 2985000 and np.sum(self.current_frame) < 2988000) or
         # green nameplate night clear 
-            (np.sum(self.current_frame) > 1874000 and np.sum(self.current_frame) < 1878000) or 
+            (np.sum(self.current_frame) > 1873000 and np.sum(self.current_frame) < 1897000) or 
         # # green nameplate day clear
         #     (np.sum(self.current_frame) > 1571000 and np.sum(self.current_frame) < 1583000) or
+        # yellow nameplate night clear
+            (np.sum(self.current_frame) > 2382000 and np.sum(self.current_frame) < 2405000) or 
         # yellow nameplate day clear
-            (np.sum(self.current_frame) > 2065000 and np.sum(self.current_frame) < 2083000) 
+            (np.sum(self.current_frame) > 2400000 and np.sum(self.current_frame) < 2430000) 
         ):
             return True
         else:
