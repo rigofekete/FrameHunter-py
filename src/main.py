@@ -3,7 +3,7 @@ from recording import ScreenRecorder
 
 def main():
         
-    recorder = ScreenRecorder(buffer_seconds=15, fps=30)
+    recorder = ScreenRecorder(buffer_seconds=8, fps=30)
     recorder.capture_frames()
     recorder.process_frames()
 

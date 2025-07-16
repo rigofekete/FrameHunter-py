@@ -70,17 +70,44 @@ def crop_regions():
     # go beyond the available display margins
 
     # Crop the region of the player name (bottom center) of PES2
+
+    # Complete region
     x_nameplate = global_vars.X - 420 
     y_nameplate = global_vars.Y + 1795
-    # x_nameplate = X + 40    
-    # y_nameplate = Y + 1795
+
     width_nameplate = global_vars.WIDTH // 2  - 1122
     height_nameplate = global_vars.HEIGHT // 2 - 980  
+
 
     # always make sure values are even!
     width_nameplate = width_nameplate - (width_nameplate % 2)
     height_nameplate = height_nameplate - (height_nameplate % 2)
 
+
+
+    # # Left char o the nameplate
+    # x_nameplate_left = global_vars.X - 420 
+    # y_nameplate_left = global_vars.Y + 1795
+    #
+    # width_nameplate_left = global_vars.WIDTH // 2  - 1172
+    # height_nameplate_left = global_vars.HEIGHT // 2 - 980  
+    #
+    #
+    # # always make sure values are even!
+    # width_nameplate_left = width_nameplate_left - (width_nameplate_left % 2)
+    # height_nameplate_left = height_nameplate_left - (height_nameplate_left % 2)
+    #
+    # # Right char of the nameplate
+    # x_nameplate_right = global_vars.X - 375 
+    # y_nameplate_right = global_vars.Y + 1795
+    #
+    # width_nameplate_right = global_vars.WIDTH // 2  - 1172
+    # height_nameplate_right = global_vars.HEIGHT // 2 - 980  
+    #
+    # # always make sure values are even!
+    # width_nameplate_right = width_nameplate_right - (width_nameplate_right % 2)
+    # height_nameplate_right = height_nameplate_right - (height_nameplate_right % 2)
+    #
     return [
         {
             'name': 'nameplate',
@@ -88,5 +115,19 @@ def crop_regions():
             'y': y_nameplate, 
             'width': width_nameplate, 
             'height': height_nameplate
-        }
+        },
+        # {
+        #     'name': 'nameplate1',
+        #     'x': x_nameplate_left, 
+        #     'y': y_nameplate_left, 
+        #     'width': width_nameplate_left, 
+        #     'height': height_nameplate_left
+        # },
+        # {
+        #     'name': 'nameplate2',
+        #     'x': x_nameplate_right, 
+        #     'y': y_nameplate_right, 
+        #     'width': width_nameplate_right, 
+        #     'height': height_nameplate_right
+        # }
     ]

@@ -1,4 +1,5 @@
 venv/
 output/
 notes/
+db/
 /highlight_test.mp4
