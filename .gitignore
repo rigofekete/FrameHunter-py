@@ -1,5 +1,6 @@
 venv/
 output/
 notes/
+overlay/
 db/
-/highlight_test.mp4
+

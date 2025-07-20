@@ -48,44 +48,41 @@ def get_dpi_aware_window_rect(title):
     # 144 DPI = 1.5 scale (150% scaling)
     # 192 DPI = 2.0 scale (200% scaling)
 
-    scale = dpi / 96.0
+    global_vars.DPI = dpi / 96.0
 
 
-    x = int(x * scale) + 10             # add/sub values to fine-tune capturing x, y, w, h regions
-    y = int(y * scale) + 20             # add/sub values to fine-tune capturing x, y, w, h regions
-    width = int(width * scale) - 20     # add/sub values to fine-tune capturing x, y, w, h regions
-    height = int(height * scale) -20    # add/sub values to fine-tune capturing x, y, w, h regions
+    x = int(x * global_vars.DPI) + 10             # add/sub values to fine-tune capturing x, y, w, h regions
+    y = int(y * global_vars.DPI) + 20             # add/sub values to fine-tune capturing x, y, w, h regions
+    width = int(width * global_vars.DPI) - 20     # add/sub values to fine-tune capturing x, y, w, h regions
+    height = int(height * global_vars.DPI) -20    # add/sub values to fine-tune capturing x, y, w, h regions
 
     # we need to make sure that the w and h values are even! 
     # (libx264 requires width/height divisible by 2)
     width = width - (width % 2)
     height = height - (height % 2)
-
     return (x, y, x + width, y + height)
 
 
 
 def crop_regions(): 
-    # TODO: IMPORTANT, handle errors for specific situations where the given coordinates
-    # go beyond the available display margins
-
     # Crop the region of the player name (bottom center) of PES2
 
-    # Complete region
-    x_nameplate = global_vars.X - 420 
-    y_nameplate = global_vars.Y + 1795
+    # Complete nameplate region
+    x_nameplate = 930
+    y_nameplate = 1820
 
-    width_nameplate = global_vars.WIDTH // 2  - 1122
-    height_nameplate = global_vars.HEIGHT // 2 - 980  
-
-
+    width_nameplate = global_vars.WIDTH // 2 - 1110 
+    # height_nameplate = global_vars.HEIGHT // 10 - 140 
+    height_nameplate = global_vars.HEIGHT // 2 - 980
     # always make sure values are even!
     width_nameplate = width_nameplate - (width_nameplate % 2)
     height_nameplate = height_nameplate - (height_nameplate % 2)
 
+    # NOTE: Remember that when we crop the captured frame we are dealing with the new frame coordinate system,
+    # starting at 0,0 and not the desktop coordinates which were only needed to frame the capture area
+    # TODO: Because of that, lets think if there is any need to have global variables for x,y,w,h
 
-
-    # # Left char o the nameplate
+    # # Left char of the nameplate
     # x_nameplate_left = global_vars.X - 420 
     # y_nameplate_left = global_vars.Y + 1795
     #
@@ -107,7 +104,70 @@ def crop_regions():
     # # always make sure values are even!
     # width_nameplate_right = width_nameplate_right - (width_nameplate_right % 2)
     # height_nameplate_right = height_nameplate_right - (height_nameplate_right % 2)
+
+    ####################
+    # Min. Goal region #
+    ####################
+    
+    x_min = global_vars.WIDTH // 2 + 50
+    y_min = 320 
+    width_min = global_vars.WIDTH // 2 - 1090   
+    height_min = global_vars.HEIGHT // 2 - 950  
+
+    # always make sure values are even!
+    width_min = width_min - (width_min % 2)
+    height_min = height_min - (height_min % 2)
+
+    ###########################
+    # Goal Scorer Player Name #
+    ###########################
+
+    x_name = global_vars.WIDTH // 2 - 390
+    y_name = global_vars.HEIGHT - 380
+
+    width_name = global_vars.WIDTH // 6  
+    height_name = global_vars.HEIGHT // 10 - 120 
+
+    # always make sure values are even!
+    width_name = width_name - (width_name % 2)
+    height_name = height_name - (height_name % 2)
+
+    # TODO change variable names to number 
+    #######################
+    # Goal Scorer  Number #
+    #######################
     #
+    # x_name = global_vars.WIDTH // 2 - 480
+    # y_name = global_vars.HEIGHT - 380
+    #
+    # width_name = global_vars.WIDTH // 6 - 320 
+    # height_name = global_vars.HEIGHT // 10 - 150 
+    #
+    # # always make sure values are even!
+    # width_name = width_name - (width_name % 2)
+    # height_name = height_name - (height_name % 2)
+    # GOAL SCORED UI AREA
+   
+    # # Left side
+    # x_goal_left = global_vars.WIDTH // 2 - 400
+    # y_goal_left = 390 
+    # width_goal_scored_left = global_vars.WIDTH // 2 - 900   
+    # height_goal_scored_left = global_vars.HEIGHT // 2 - 900  
+    #
+    # # always make sure values are even!
+    # width_goal_scored_left = width_goal_scored_left - (width_goal_scored_left % 2)
+    # height_goal_scored_left = height_goal_scored_left - (height_goal_scored_left % 2)
+    #
+    # # Right side
+    # x_goal_right = global_vars.WIDTH // 2 + 70
+    # y_goal_right = 390 
+    # width_goal_scored_right = global_vars.WIDTH // 2 - 900   
+    # height_goal_scored_right = global_vars.HEIGHT // 2 - 900  
+    #
+    # # always make sure values are even!
+    # width_goal_scored_right = width_goal_scored_right - (width_goal_scored_right % 2)
+    # height_goal_scored_right = height_goal_scored_right - (height_goal_scored_right % 2)
+
     return [
         {
             'name': 'nameplate',
@@ -116,18 +176,47 @@ def crop_regions():
             'width': width_nameplate, 
             'height': height_nameplate
         },
+        {
+            'name': 'min_region',
+            'x': x_min, 
+            'y': y_min, 
+            'width': width_min, 
+            'height': height_min
+        },
+        {
+            'name': 'name_region',
+            'x': x_name, 
+            'y': y_name, 
+            'width': width_name, 
+            'height': height_name
+        },
         # {
-        #     'name': 'nameplate1',
+        #     'name': 'score_region_left',
+        #     'x': x_goal_left, 
+        #     'y': y_goal_left, 
+        #     'width': width_goal_scored_left, 
+        #     'height': height_goal_scored_left
+        # },
+        # {
+        #     'name': 'score_region_right',
+        #     'x': x_goal_right, 
+        #     'y': y_goal_right, 
+        #     'width': width_goal_scored_right, 
+        #     'height': height_goal_scored_right
+        # },
+        # {
+        #     'name': 'nameplate_left',
         #     'x': x_nameplate_left, 
         #     'y': y_nameplate_left, 
         #     'width': width_nameplate_left, 
         #     'height': height_nameplate_left
         # },
         # {
-        #     'name': 'nameplate2',
+        #     'name': 'nameplate_right',
         #     'x': x_nameplate_right, 
         #     'y': y_nameplate_right, 
         #     'width': width_nameplate_right, 
         #     'height': height_nameplate_right
         # }
     ]
+
