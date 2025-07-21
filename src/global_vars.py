@@ -21,3 +21,5 @@ X = None
 Y = None
 DPI = None
 
+# For live recording 
+MAX_REC_LIMIT = 60.0

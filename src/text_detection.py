@@ -8,6 +8,8 @@ import pytesseract
 from global_vars import DB_PATH
 
 
+# TODO: DB files need to be reset when starting the program!
+
 class TextDetector:
     def __init__(self):
         # Setup Tessaract
@@ -24,13 +26,16 @@ class TextDetector:
         # self.ocr_config_score = '--psm 10 -c tessedit_char_whitelist=0123456789O '
         self.ocr_config_score = '--psm 8 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789. '
         
-        self.ocr_config_player = '--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz. '
+        self.ocr_config_player = '--psm 11 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz. '
         # self.ocr_config_player = '--psm 8 -c tessedit_char_whitelist=0123456789Ii '
         #NOTE:
         # PSM MODES ##
         ##############
         # PSM 8	Single textline (can detect multiple characters)
-        # PSM 10	Single character (treats entire image as one character)
+        # PSM 10 Single character (treats entire image as one character)
+        # PSM 7 Treat the Image as a Single Text Line
+        # PSM 11 Sparse Text: Find as Much Text as Possible in No Particular Order
+
 
         # Initialize player database
         self.setup_char_database()

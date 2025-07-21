@@ -1,8 +1,9 @@
 import threading
 import subprocess
 import os
+import random
 # import time
-from global_vars import OVERLAY_PATH
+from global_vars import OVERLAY_PATH, ERROR
 
 
 def find(name, path):
@@ -39,15 +40,17 @@ class SimpleOverlay:
     def _play_video(self):
         INPUT_PATH = 'overlay\\Desktop.mp4'        
         
-        # NOTE Add check to confirm if overlay path and sub dirs exists and create path if doesn't
+        # NOTE Add check to confirm if overlay path and sub dirs exists and create path if they don't
         if self.player_name:
             self.player_name = self.player_name.lower()
-            print(f'Searching for {self.player_name} ...')
-            INPUT_PATH = find(f'{self.player_name}.mp4', f'{OVERLAY_PATH}\\portugal')
+            random.seed()
+            index = random.randrange(1, 4)
+            print(f'INDEX FOR FILES: {index}')
+            print(f'Searching for {self.player_name + str(index)} ...')
+            INPUT_PATH = find(f'{self.player_name + str(index)}.mp4', f'{OVERLAY_PATH}\\portugal')
             # print(f'INPUT PATH IN PLAY VIDEO: {INPUT_PATH}')
             if not INPUT_PATH:
-                print(f'Player name: {self.player_name} not found in path') 
-                sys.exit(1)
+                print(f'{ERROR}Player name: {self.player_name + str(index)} not found in path') 
             else:
                 print(f'Found: {INPUT_PATH}')
 
@@ -63,19 +66,23 @@ class SimpleOverlay:
                 # '-t',
                 # '10',
         ]
-        try:
-            self.ffmpeg_process = subprocess.Popen(command)
-                                  
-            self.is_recording = True
-            print('FFmpeg command executed successfully!')
-            print('Rendering overlay screen.....')
-            return True
+        if INPUT_PATH:
+            try:
+                self.ffmpeg_process = subprocess.Popen(command)
+                                      
+                self.is_recording = True
+                print('FFmpeg command executed successfully!')
+                print('Rendering overlay screen.....')
+                return True
 
 
-        except Exception as e:
-            print(f"❌ Error playing video: {e}")
-        finally:
+            except Exception as e:
+                print(f"❌ Error playing video: {e}")
+            finally:
+                self.is_playing = False
+        else:
             self.is_playing = False
+            print('INPUT PATH is empty or does not exist')
 
 
 

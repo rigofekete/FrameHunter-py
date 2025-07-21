@@ -19,7 +19,7 @@ from text_detection import TextDetector
 from simple_overlay import SimpleOverlay
 from threaded_ocr import ThreadedOCRProcessor
 
-from global_vars import PCSX2, PES2, WE6, WE6FE, OUTPUT_FOLDER, OVERLAY_PATH
+from global_vars import PCSX2, PES2, WE6, WE6FE, OUTPUT_FOLDER, OVERLAY_PATH, MAX_REC_LIMIT, ERROR
 import global_vars 
 
 
@@ -47,6 +47,7 @@ class ScreenRecorder:
 
         # Recoding attr
         self.is_recording = False
+        self.stop_recording = False
         self.ffmpeg_process = None
 
         # Overlay
@@ -462,6 +463,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
         min_arr = img_list[1]
         player_arr = img_list[2]
 
+
         # if not hasattr(self, 'ocr_frame_counter'):
         #     self.ocr_frame_counter = 0
 
@@ -479,29 +481,30 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             # print(f'PLAYER FOUND: {self.player_found} TEXT: {latest_result.detected_text_player}')
             # print(f'CHAR FOUND: {self.char_found} TEXT: {latest_result.detected_text_char}')
             
-
         if not self.is_recording:
             # Submit OCR task every 8 frames (non-blocking)
-            if self.ocr_frame_counter % 8 == 0:
-                if not self.overlay.is_playing:
-                    success = self.ocr_processor.submit_ocr_task(
-                        nameplate_arr, min_arr, player_arr, self.ocr_frame_counter
-                    )
-                    if not success:
-                        print("OCR queue full, skipping OCR for this frame")
+            # if self.ocr_frame_counter % 1 == 0:
+            if not self.overlay.is_playing:
+                success = self.ocr_processor.submit_ocr_task(
+                    nameplate_arr, min_arr, player_arr, self.ocr_frame_counter
+                )
+                if not success:
+                    print("OCR queue full, skipping OCR for this frame")
 
-                # Check for recording trigger
-                if self.score_found and self.player_found:
-                    print(f'Starting recording - Score: {self.score_found}, Player: {self.player_found}')
-                    self.save_buffer_trigger.set()
-                    self.start_time = time.time()
-                    self.overlay.start()
-                    self.is_recording = True
+            # Check for recording trigger
+            if self.score_found and self.player_found:
+                print(f'Starting recording - Score: {self.score_found}, Player: {self.player_found}')
+                self.save_buffer_trigger.set()
+                self.start_time = time.time()
+                self.overlay.start()
+                self.is_recording = True
+                self.ocr_processor.delay_score_bool = False
 
-                self.ocr_frame_counter = 0
+
+
+            self.ocr_frame_counter = 0
 
         self.ocr_frame_counter += 1
-
         # Handle recording logic (same as before)
         if self.char_found and not self.is_recording and not self.overlay.is_playing:
             self.save_buffer_trigger.set()
@@ -510,7 +513,8 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             print('Detection triggered! Saving buffer in buffer thread....')
             self.is_recording = True
             
-        elif self.is_recording and (not self.detect_changes_trigger_end(nameplate_arr)):
+        elif (self.is_recording and not self.stop_recording and
+              (not self.detect_changes_trigger_end(nameplate_arr))):
             # ... your existing recording logic ...
             print('Saving live recording to the main thread output container')
             now = time.time()
@@ -521,12 +525,19 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             packet = self.output_stream.encode(frame)
             self.output_container.mux(packet)
             self.last_pts = self.current_pts
-            print(f"Encoded frame with PTS={frame.pts}")
+
+            #NOTE: Safe check to avoid having continuous recording caused by unwanted behaviour
+            # print(f'ELAPSED TIME: {elapsed_time}')
+            if elapsed_time > MAX_REC_LIMIT:
+                self.stop_recording = True
+                print(f'{ERROR} Live recording limit reached: {MAX_REC_LIMIT}. Terminating recording for now')
+                # print(f"Encoded frame with PTS={frame.pts}")
             
         else:
             # print("No frame changes detected, not recording")
             if self.is_recording:
                 self.is_recording = False
+                self.stop_recording = False
                 # ... your existing cleanup logic ...
                 for packet in self.output_stream.encode():
                     self.output_container.mux(packet)
