@@ -157,6 +157,7 @@ class ThreadedOCRProcessor:
         # Cleanup
         try:
             if hasattr(detector, 'cleanup_databases'):
+                print('Cleaning up char database')
                 detector.cleanup_databases()
         except Exception as e:
             print(f"Error cleaning up char detector: {e}")
@@ -203,6 +204,7 @@ class ThreadedOCRProcessor:
         # Cleanup
         try:
             if hasattr(detector, 'cleanup_databases'):
+                print("Cleaning up score database")
                 detector.cleanup_databases()
         except Exception as e:
             print(f"Error cleaning up score detector: {e}")
@@ -249,6 +251,7 @@ class ThreadedOCRProcessor:
         # Cleanup
         try:
             if hasattr(detector, 'cleanup_databases'):
+                print("Cleaning up player database")
                 detector.cleanup_databases()
         except Exception as e:
             print(f"Error cleaning up player detector: {e}")

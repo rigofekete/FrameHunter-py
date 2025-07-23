@@ -1,4 +1,6 @@
 venv/
+merger/
+merged_videos/
 output/
 notes/
 overlay/

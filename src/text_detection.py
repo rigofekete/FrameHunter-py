@@ -28,6 +28,7 @@ class TextDetector:
         
         self.ocr_config_player = '--psm 11 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz. '
         # self.ocr_config_player = '--psm 8 -c tessedit_char_whitelist=0123456789Ii '
+
         #NOTE:
         # PSM MODES ##
         ##############
@@ -201,14 +202,14 @@ class TextDetector:
         patterns = [
             # ("S.", 1),
             ("CONCEICAO", 1),
-            ("conceicao", 1),
+            # ("conceicao", 1),
             ("PAULETA", 1),
-            ("Pauleta", 1),
-            ("pauleta", 1),
-            ("Joao", 1),
+            # ("Pauleta", 1),
+            # ("pauleta", 1),
+            # ("Joao", 1),
             ("JOAO", 1),
-            ("pinto", 1),
-            ("Pinto", 1),
+            # ("pinto", 1),
+            # ("Pinto", 1),
             ("PINTO", 1),
             # ("S. CONCEICAO", 1),
             # ("S.CONCEICAO", 1),
@@ -256,7 +257,8 @@ class TextDetector:
         try:
 
             # Upscale the region first
-            scale_factor = 4  # Experiment with different values (2-4 typically work well)
+            # Experiment with different values (2-4 typically work well)
+            scale_factor = 4  
             height, width = nameplate_region.shape[:2]
             upscaled_region = cv2.resize(
                 nameplate_region, 

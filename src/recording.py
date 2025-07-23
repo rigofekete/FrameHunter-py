@@ -4,6 +4,9 @@ import os
 import sys
 import threading
 import queue
+import keyboard
+import datetime
+import time
 
 import av
 
@@ -11,25 +14,33 @@ from collections import deque
 import numpy as np
 import fractions
 
-import datetime
-import time
 
 from window_config import  get_dpi_aware_window_rect, crop_regions 
 from text_detection import TextDetector
 from simple_overlay import SimpleOverlay
 from threaded_ocr import ThreadedOCRProcessor
 
-from global_vars import PCSX2, PES2, WE6, WE6FE, OUTPUT_FOLDER, OVERLAY_PATH, MAX_REC_LIMIT, ERROR
+from global_vars import (
+        PCSX2, PES2, WE6, WE6FE, 
+        OUTPUT_FOLDER, OVERLAY_PATH, 
+        MAX_REC_LIMIT, BLACK_FRAME, 
+        ERROR,
+        MENU_TXT
+)
+
 import global_vars 
 
 
 class ScreenRecorder:
-    def __init__(self, buffer_seconds=10, fps=30):
+    def __init__(self, buffer_seconds=8, fps=30):
         # OCR Threading 
         self.ocr_processor = ThreadedOCRProcessor(
-            txt_detector_class=TextDetector,  # Replace with your actual class
-            txt_detector_args=[],  # Add any positional arguments your TextDetector needs
-            txt_detector_kwargs={}  # Add any keyword arguments your TextDetector needs
+             # Replace with your actual class
+            txt_detector_class=TextDetector,  
+            # Add any positional arguments your TextDetector needs
+            txt_detector_args=[],  
+            # Add any keyword arguments your TextDetector needs
+            txt_detector_kwargs={}  
         )
         # OCR state variables
         self.char_found = False
@@ -44,9 +55,11 @@ class ScreenRecorder:
         self.output_stream = None
         self.input_stream = None
         self.output_ready = False
+        self.output_index = 1
 
         # Recoding attr
         self.is_recording = False
+        self.recording_time = 0
         self.stop_recording = False
         self.ffmpeg_process = None
 
@@ -153,12 +166,13 @@ class ScreenRecorder:
         if not self.output_ready:
             try:
                 # now = str(datetime.datetime.now()).replace(' ', '_').replace(':', '-')
-                now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                # now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                now = datetime.datetime.now().strftime("%H%M%S")
                 # TODO: Add a check to confirm if folder already exists 
                 if not os.path.exists(OUTPUT_FOLDER):
                     os.mkdir(OUTPUT_FOLDER)
 
-                output_path = os.path.abspath(f'{OUTPUT_FOLDER}\\{now}.mp4')
+                output_path = os.path.abspath(f'{OUTPUT_FOLDER}\\{self.output_index}-live-{now}.mp4')
                 self.output_container = av.open(output_path, 'w')
 
                 self.output_stream = self.output_container.add_stream('libx264', rate=30)
@@ -341,131 +355,12 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
 
 
 
-    # Older implementation without its own thread
-    # def rec_frames_ocr(self, img_list, frame):
-    #     print(f"""
-    #     CURRENT PTS: {self.current_pts}
-    #     LAST PTS: {self.last_pts}
-    #     """)
-    #
-    #     nameplate_arr = img_list[0]
-    #     min_arr = img_list[1]
-    #     player_arr = img_list[2]
-    #     img_list.clear()
-    #
-    #     if not hasattr(self, 'ocr_frame_counter'):
-    #         self.ocr_frame_counter = 0
-    #
-    #     # img_arr = img_arr1
-    #     # score_found = False
-    #     # player_found = False
-    #     # score_found2 = False
-    #
-    #     # if self.current_pts <= self.last_pts and not self.ok_detection:
-    #     #     return False
-    #
-    #     if not self.is_recording:
-    #         if self.ocr_frame_counter % 8 == 0:
-    #             # if self.ocr_frame_counter % 2 == 0:
-    #             #     pass
-    #             # else:
-    #             #     img_arr = img_arr2
-    #             #
-    #             self.char_found, detected_text_char = self.txt_detector.detect_char_in_region(nameplate_arr)
-    #             print(f'SCORE FOUND: {self.char_found} DETECTED_TEXT: {detected_text_char}') 
-    #
-    #             if not self.overlay.is_playing:
-    #                 self.score_found, detected_text_score = self.txt_detector.detect_score_in_region(min_arr)
-    #                 print(f'SCORE FOUND: {self.score_found} DETECTED_TEXT: {detected_text_score}') 
-    #
-    #                 self.player_found, detected_text_player = self.txt_detector.detect_player_in_region(player_arr)
-    #                 print(f'PLAYER FOUND: {self.player_found} DETECTED_TEXT: {detected_text_player}') 
-    #
-    #                 # if player_found:
-    #                 #     sys.exit(1)
-    #
-    #
-    #                 if self.score_found and self.player_found:
-    #                     print(f'SCORE FOUND: {self.score_found} DETECTED_TEXT: {detected_text_score}') 
-    #                     print(f'PLAYER FOUND: {self.player_found} DETECTED_TEXT: {detected_text_player}') 
-    #                     self.save_buffer_trigger.set()
-    #                     self.start_time = time.time()
-    #                     self.overlay.start()
-    #                     self.is_recording = True
-    #                     # sys.exit(1)
-    #
-    #
-    #             # NOTE: Alternate block in order to double check if the detected region matches the pixel count
-    #             # if np.sum(img_arr) < xxxvalue:
-    #             #     mf_found = False
-    #             #     detected_text = 'false positive'
-    #             #     print(f'MF FOUND: {mf_found} DETECTED_TEXT: {detected_text}') 
-    #             # else:
-    #             #     self.ocr_frame_counter = 0
-    #             #     print(f'MF FOUND: {mf_found} DETECTED_TEXT: {detected_text}') 
-    #
-    #             self.ocr_frame_counter = 0
-    #             # print(f'CHAR FOUND: {char_found} DETECTED_TEXT: {detected_text_char}') 
-    #
-    #     self.ocr_frame_counter += 1
-    #
-    #     if self.char_found and not self.is_recording and not self.overlay.is_playing:
-    #         # if not self.is_recording:
-    #         self.save_buffer_trigger.set()
-    #         self.start_time = time.time()
-    #         char_found = False
-    #         print('Detection triggered! Saving buffer in buffer thread....')
-    #
-    #         self.is_recording = True
-    #     elif self.is_recording and (not self.detect_changes_trigger_end(nameplate_arr)):
-    #         print(f"""
-    # CURRENT FRAME: {np.sum(nameplate_arr)}
-    # PREVIOUS FRAME: {np.sum(self.previous_frame)}
-    # """)
-    #
-    #         print('Saving live recording to the main thread ouput container')
-    #
-    #         now = time.time()
-    #         elapsed_time = now - self.start_time
-    #
-    #         self.current_pts = int(elapsed_time / float(self.time_base))
-    #
-    #         frame.pts = self.current_pts
-    #         frame.time_base = self.time_base
-    #
-    #         packet = self.output_stream.encode(frame)
-    #         self.output_container.mux(packet)
-    #
-    #         self.last_pts = self.current_pts
-    #
-    #         print(f"Encoded frame with PTS={frame.pts}")
-    #     else:
-    #         print("No frame changes detected, not recording")
-    #         if self.is_recording:
-    #             self.is_recording = False
-    #
-    #             for packet in self.output_stream.encode():
-    #                 self.output_container.mux(packet)
-    #             self.output_ready = False
-    #             self.output_container.close()
-    #             self.output_container = None
-    #             self.output_stream = None
-    #             self.overlay.stop()
-    #             self.score_found = False
-    #             self.player_found = False
-    #             self.char_found = False
-    #
-    #     self.previous_frame = nameplate_arr
-    
-
     def rec_frames_ocr_threaded(self, img_list, frame):
-        nameplate_arr = img_list[0]
-        min_arr = img_list[1]
-        player_arr = img_list[2]
+        # NOTE Update value if list is resized in the future
+        if len(img_list) < 3:
+            raise Exception(f'img_list should have 3 elements/frame crops. Current size: {len(img_list)}')
 
-
-        # if not hasattr(self, 'ocr_frame_counter'):
-        #     self.ocr_frame_counter = 0
+        nameplate_arr, min_arr, player_arr = img_list
 
         # Process any new OCR results (non-blocking)
         new_results = self.ocr_processor.get_new_results()
@@ -501,7 +396,6 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                 self.ocr_processor.delay_score_bool = False
 
 
-
             self.ocr_frame_counter = 0
 
         self.ocr_frame_counter += 1
@@ -512,6 +406,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             self.char_found = False  # Reset to avoid repeated triggers
             print('Detection triggered! Saving buffer in buffer thread....')
             self.is_recording = True
+            self.recording_count = time.time()
             
         elif (self.is_recording and not self.stop_recording and
               (not self.detect_changes_trigger_end(nameplate_arr))):
@@ -526,11 +421,11 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             self.output_container.mux(packet)
             self.last_pts = self.current_pts
 
-            #NOTE: Safe check to avoid having continuous recording caused by unwanted behaviour
-            # print(f'ELAPSED TIME: {elapsed_time}')
-            if elapsed_time > MAX_REC_LIMIT:
+            #NOTE: Safe check to avoid having long continuous recording caused by unwanted behaviour
+            print(f'REC TIME: {self.recording_time}')
+            if self.recording_time > MAX_REC_LIMIT:
                 self.stop_recording = True
-                print(f'{ERROR} Live recording limit reached: {MAX_REC_LIMIT}. Terminating recording for now')
+                print(f'{ERROR} Live recording time limit reached: {MAX_REC_LIMIT}. Terminating recording for now')
                 # print(f"Encoded frame with PTS={frame.pts}")
             
         else:
@@ -538,6 +433,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             if self.is_recording:
                 self.is_recording = False
                 self.stop_recording = False
+                self.recording_count = 0
                 # ... your existing cleanup logic ...
                 for packet in self.output_stream.encode():
                     self.output_container.mux(packet)
@@ -690,8 +586,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                 except Exception as e:
                     print(f'Fill buffer thread error: {e}')
 
-            except Exception as e:
-                print(f'Save buffer trigger error: {e}')
+            except Exception as e: print(f'Save buffer trigger error: {e}')
 
         print('Buffer thread stopped')
 
@@ -710,8 +605,10 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             
             try:
                 print('Entering the try scope of the save buffer file')
-                timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-                output_path = os.path.abspath(f'output\\pre-event-{timestamp}.mp4')
+                # timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+                timestamp = time.strftime("%H%M%S")
+                output_path = os.path.abspath(f'output\\{self.output_index}-pre-event-{timestamp}.mp4')
+                self.output_index += 1
 
                 buffer_output_container = av.open(output_path, 'w')
 
@@ -792,6 +689,24 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             while True:
                 try:
                     for frame in self.input_container.decode(video=0):
+                        # if keyboard.read_key() == 'q':
+                        if keyboard.is_pressed('q'):
+                            # TODO: Make a clean up function for this 
+                            print('\nExiting highlights recording')
+                            sys.stdout.flush()
+                            try:
+                                if self.output_stream and self.output_container:
+                                    for packet in self.output_stream.encode():
+                                        self.output_container.mux(packet)
+                                        self.output_container.close()
+                            except Exception as e:
+                                print(f'Error while cleaning up output stream: {e}')
+
+                            self.input_container.close()
+                            self.ocr_processor.stop()
+
+                            return 1
+
                         # TODO: Check why do we need to use numpy to convert frame to array 
                         img_arr = frame.to_ndarray(format='bgr24') 
 
@@ -858,16 +773,16 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                             self.output_ready = False
                             self.input_container.close()
                             self.output_container.close()
-                            sys.exit(1)
+                            # sys.exit(1)
                             # pass
                         except:
                             self.input_container.close()
-                            sys.exit(1)
+                            # sys.exit(1)
                             # pass
                     else:
                         print(f'Error processing frame: {e}')
                         self.input_container.close()
-                        sys.exit(1)
+                        # sys.exit(1)
                         # pass
         except KeyboardInterrupt:
             print("Recording stopped by user")
@@ -881,8 +796,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             print(f'Error while cleaning up output stream: {e}')
 
         self.input_container.close()
-        # self.txt_detector.cleanup_databases()
-        self.ocr_processor.shutdown()
+        self.ocr_processor.stop()
 
 
 
@@ -900,75 +814,74 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
 """)
 
         # Scene transition black frame. Trigger point to stop live recording.
-        if np.sum(self.current_frame) < 6900:
+        if np.sum(self.current_frame) < BLACK_FRAME:
         # if np.sum(self.current_frame) < 690000:
             return True
         else:
             return False
 
-        # return False
 
-
-
-
-    def detect_changes_manual(self, img_arr):
-        if self.previous_frame is None:
-            print("previous_frame is None")
-            return False
-        
-        self.current_frame = img_arr
-        print(f"""
-CURRENT FRAME: {np.sum(self.current_frame)}
-PREVIOUS FRAME: {np.sum(self.previous_frame)}
-""")
-        # NOTE: name these magic number values to something like nameplate_green_min/max
-        # # pink nameplate day clear
-        # if ((np.sum(self.current_frame) > 2524000 and np.sum(self.current_frame) < 2539000) or
-        # pink nameplate night clear
-        if ((np.sum(self.current_frame) > 2510000 and np.sum(self.current_frame) < 2535000) or
-        # # blue nameplate night clear?
-        #     (np.sum(self.current_frame) > 2627000 and np.sum(self.current_frame) < 2640000) or
-        # blue nameplate day clear 
-            (np.sum(self.current_frame) > 2970000 and np.sum(self.current_frame) < 2988000) or
-        # green nameplate night clear 
-            (np.sum(self.current_frame) > 1873000 and np.sum(self.current_frame) < 1897000) or 
-        # # green nameplate day clear
-        #     (np.sum(self.current_frame) > 1571000 and np.sum(self.current_frame) < 1583000) or
-        # yellow nameplate night clear
-            (np.sum(self.current_frame) > 2382000 and np.sum(self.current_frame) < 2405000) or 
-        # yellow nameplate day clear
-            (np.sum(self.current_frame) > 2400000 and np.sum(self.current_frame) < 2430000) 
-        ):
-            return True
-        else:
-            return False
-
-        # Scene transition black frame. Trigger point to stop live recording.
-        if np.sum(self.current_frame) < 6900:
-            return True
-        else:
-            return False
-
-        # return False
-
-    # TODO: Think of this is of any use if we decide to use the ffmpeg process cmd commands  
-    def detect_changes_cmd(self, current_frame):
-        # if self.previous_frame is None:
-        #     print("previous_frame is None")
-        #     return False
-
-        # print("called")
-        self.current_frame = current_frame
-        print(f"""
-CURRENT FRAME: {np.sum(self.current_frame)}
-PREVIOUS FRAME: {np.sum(self.previous_frame)}
-""")
-        
-        if np.sum(self.current_frame) > 5830000 and np.sum(self.current_frame) < 5940000:
-            return True
-        #
-        if np.sum(current_frame) < 800000:
-            return False
-
-        return False
+#
+#
+#
+#     def detect_changes_manual(self, img_arr):
+#         if self.previous_frame is None:
+#             print("previous_frame is None")
+#             return False
+#
+#         self.current_frame = img_arr
+#         print(f"""
+# CURRENT FRAME: {np.sum(self.current_frame)}
+# PREVIOUS FRAME: {np.sum(self.previous_frame)}
+# """)
+#         # NOTE: name these magic number values to something like nameplate_green_min/max
+#         # # pink nameplate day clear
+#         # if ((np.sum(self.current_frame) > 2524000 and np.sum(self.current_frame) < 2539000) or
+#         # pink nameplate night clear
+#         if ((np.sum(self.current_frame) > 2510000 and np.sum(self.current_frame) < 2535000) or
+#         # # blue nameplate night clear?
+#         #     (np.sum(self.current_frame) > 2627000 and np.sum(self.current_frame) < 2640000) or
+#         # blue nameplate day clear 
+#             (np.sum(self.current_frame) > 2970000 and np.sum(self.current_frame) < 2988000) or
+#         # green nameplate night clear 
+#             (np.sum(self.current_frame) > 1873000 and np.sum(self.current_frame) < 1897000) or 
+#         # # green nameplate day clear
+#         #     (np.sum(self.current_frame) > 1571000 and np.sum(self.current_frame) < 1583000) or
+#         # yellow nameplate night clear
+#             (np.sum(self.current_frame) > 2382000 and np.sum(self.current_frame) < 2405000) or 
+#         # yellow nameplate day clear
+#             (np.sum(self.current_frame) > 2400000 and np.sum(self.current_frame) < 2430000) 
+#         ):
+#             return True
+#         else:
+#             return False
+#
+#         # Scene transition black frame. Trigger point to stop live recording.
+#         if np.sum(self.current_frame) < 6900:
+#             return True
+#         else:
+#             return False
+#
+#         # return False
+#
+#     # TODO: Think of this is of any use if we decide to use the ffmpeg process cmd commands  
+#     def detect_changes_cmd(self, current_frame):
+#         # if self.previous_frame is None:
+#         #     print("previous_frame is None")
+#         #     return False
+#
+#         # print("called")
+#         self.current_frame = current_frame
+#         print(f"""
+# CURRENT FRAME: {np.sum(self.current_frame)}
+# PREVIOUS FRAME: {np.sum(self.previous_frame)}
+# """)
+#
+#         if np.sum(self.current_frame) > 5830000 and np.sum(self.current_frame) < 5940000:
+#             return True
+#         #
+#         if np.sum(current_frame) < 800000:
+#             return False
+#
+#         return False
 
