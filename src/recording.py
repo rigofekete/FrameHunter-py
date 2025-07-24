@@ -22,17 +22,17 @@ from threaded_ocr import ThreadedOCRProcessor
 
 from global_vars import (
         PCSX2, PES2, WE6, WE6FE, 
-        OUTPUT_FOLDER, OVERLAY_PATH, 
+        OUTPUT_FOLDER, OVERLAY_PATH, LIVE_FOLDER, 
         MAX_REC_LIMIT, BLACK_FRAME, 
-        ERROR,
-        MENU_TXT
+        LIVE, FULL,
+        ERROR, STOP, WARNING, SUCCESS,
 )
 
 import global_vars 
 
 
 class ScreenRecorder:
-    def __init__(self, buffer_seconds=8, fps=30):
+    def __init__(self, window=PES2, mode=FULL, crop='no', buffer_seconds=8, fps=30):
         # OCR Threading 
         self.ocr_processor = ThreadedOCRProcessor(
              # Replace with your actual class
@@ -58,13 +58,19 @@ class ScreenRecorder:
         self.output_index = 1
 
         # Recoding attr
+        self.mode = mode
+        self.crop = crop
         self.is_recording = False
         self.recording_time = 0
         self.stop_recording = False
         self.ffmpeg_process = None
+        self.fps = fps
 
         # Overlay
         self.is_overlay = False
+
+        # Window name
+        self.window = window
 
         # circlar buffer attributes
         self.buffer_seconds = buffer_seconds
@@ -103,11 +109,14 @@ class ScreenRecorder:
         self.img_list = []
 
 
+        # TODO Make a function to clean up the screenrecorder object
+
+
 
 
     def capture_frames(self):
         try:
-            rect = get_dpi_aware_window_rect(PES2)
+            rect = get_dpi_aware_window_rect(self.window)
             # rect = get_dpi_aware_window_rect(WE6)
             # rect = get_dpi_aware_window_rect(WE6FE)
             # rect = get_dpi_aware_window_rect(PCSX2)
@@ -120,8 +129,10 @@ class ScreenRecorder:
                 print(f"width {global_vars.WIDTH} height {global_vars.HEIGHT}")
             else:
                 print("rect is null")
+                self.ocr_processor.stop()
+                return False
             
-            self.targets = crop_regions()
+            self.targets = crop_regions(self.window)
             # print(f'targets 0 : {self.targets[0]}')
             #
             video_size = f'{global_vars.WIDTH}x{global_vars.HEIGHT}'
@@ -133,7 +144,7 @@ class ScreenRecorder:
                                             format='gdigrab',
                                             mode='r',
                                             options={
-                                                'framerate': '30',
+                                                'framerate': str(self.fps),
                                                 # 'probesize': '100M',      # Larger buffer
                                                 # 'analyzeduration': '0',   # Skip analysis
                                                 # 'fflags': 'nobuffer',     # Reduce buffering
@@ -160,8 +171,10 @@ class ScreenRecorder:
             # print(f"Actual input FPS from gdigrab: {fps:.2f}")
         except Exception as e:
             print(f'Error setting up window config and input container and stream: {e}')
-            sys.exit(1)
-      
+            return False
+            # sys.exit(1)
+        return True
+     
     def setup_output(self):
         if not self.output_ready:
             try:
@@ -172,10 +185,18 @@ class ScreenRecorder:
                 if not os.path.exists(OUTPUT_FOLDER):
                     os.mkdir(OUTPUT_FOLDER)
 
-                output_path = os.path.abspath(f'{OUTPUT_FOLDER}\\{self.output_index}-live-{now}.mp4')
+                output_path = ""
+
+                if self.mode == LIVE:
+                    if not os.path.exists(LIVE_FOLDER):
+                        os.mkdir(LIVE_FOLDER)
+                    output_path = os.path.abspath(f'{LIVE_FOLDER}\\live-{now}.mp4')
+                else:
+                    output_path = os.path.abspath(f'{OUTPUT_FOLDER}\\{self.output_index}-live-{now}.mp4')
+
                 self.output_container = av.open(output_path, 'w')
 
-                self.output_stream = self.output_container.add_stream('libx264', rate=30)
+                self.output_stream = self.output_container.add_stream('libx264', rate=self.fps)
                 self.output_stream.width = self.input_container.streams.video[0].width
                 self.output_stream.height = self.input_container.streams.video[0].height
                 self.output_stream.pix_fmt = 'yuv420p'
@@ -221,7 +242,7 @@ class ScreenRecorder:
         command = [
                 'ffmpeg',
                 '-f', 'lavfi',
-                '-i', 'ddagrab=framerate=30',
+                '-i', f'ddagrab=framerate={self.fps}',
                 '-c:v', 'h264_nvenc',
                 '-cq', '18',
                 '-y',
@@ -298,7 +319,7 @@ class ScreenRecorder:
     # live recording stops with the failed detection
     def manual_output_config(self):
         if self.output_ready:
-            self.time_base = fractions.Fraction(1, 30)
+            self.time_base = fractions.Fraction(1, self.fps)
             self.output_stream.time_base = self.time_base
             # TODO check if this start time placed here is really only useful for the region check function for crops
             self.start_time = time.time()
@@ -329,10 +350,10 @@ class ScreenRecorder:
             return
 
         self.is_recording = True
-        print(f"""
-CURRENT FRAME: {np.sum(img_to_inspect)}
-PREVIOUS FRAME: {np.sum(self.previous_frame)}
-""")
+#         print(f"""
+# CURRENT FRAME: {np.sum(img_to_inspect)}
+# PREVIOUS FRAME: {np.sum(self.previous_frame)}
+# """)
         frame.pts = self.current_pts
         frame.time_base = self.time_base
         
@@ -348,7 +369,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
 
         self.last_pts = self.current_pts
 
-        print(f"Encoded frame with PTS={frame.pts}")
+        # print(f"Encoded frame with PTS={frame.pts}")
 
         self.previous_frame = img_to_inspect
 
@@ -612,7 +633,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
 
                 buffer_output_container = av.open(output_path, 'w')
 
-                buffer_output_stream = buffer_output_container.add_stream('libx264', rate=30)
+                buffer_output_stream = buffer_output_container.add_stream('libx264', rate=self.fps)
                 buffer_output_stream.width = self.input_container.streams.video[0].width
                 buffer_output_stream.height = self.input_container.streams.video[0].height
                 buffer_output_stream.pix_fmt = 'yuv420p'
@@ -677,7 +698,7 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
         self.start_buffer_thread()
 
         self.overlay = SimpleOverlay(
-                os.path.abspath(f'{OVERLAY_PATH}\\Desktop.mp4'),
+                # os.path.abspath(f'{OVERLAY_PATH}\\Desktop.mp4'),
                 global_vars.X, global_vars.Y,
                 global_vars.WIDTH, global_vars.HEIGHT, 
                 duration=3
@@ -693,19 +714,21 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                         if keyboard.is_pressed('q'):
                             # TODO: Make a clean up function for this 
                             print('\nExiting highlights recording')
-                            sys.stdout.flush()
-                            try:
-                                if self.output_stream and self.output_container:
-                                    for packet in self.output_stream.encode():
-                                        self.output_container.mux(packet)
-                                        self.output_container.close()
-                            except Exception as e:
-                                print(f'Error while cleaning up output stream: {e}')
-
-                            self.input_container.close()
-                            self.ocr_processor.stop()
-
+                            # sys.stdout.flush()
+                            # try:
+                            #     if self.output_stream and self.output_container:
+                            #         for packet in self.output_stream.encode():
+                            #             self.output_container.mux(packet)
+                            #
+                            # except Exception as e:
+                            #     print(f'Error while cleaning up output stream: {e}')
+                            #
+                            # self.output_container.close()
+                            # self.input_container.close()
+                            # self.ocr_processor.stop()
+                            self.close()
                             return 1
+
 
                         # TODO: Check why do we need to use numpy to convert frame to array 
                         img_arr = frame.to_ndarray(format='bgr24') 
@@ -749,11 +772,13 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                             print('Buffer queue full, skipping frame')
                             pass
 
-                        # self.rec_frames_ocr(nameplate_region, frame)
-                        # self.rec_frames_ocr(img_list, frame)
-                        self.rec_frames_ocr_threaded(img_list, frame)
-                        # self.region_check(img_list[0], frame, crop='yes')
-                        # self.region_check(img_list[2], frame, crop='yes')
+                        if self.mode == FULL:
+                            self.rec_frames_ocr_threaded(img_list, frame)
+                            # self.rec_frames_ocr(nameplate_region, frame)
+                            # self.rec_frames_ocr(img_list, frame)
+                        elif self.mode == LIVE:
+                            self.region_check(img_list[0], frame, crop=self.crop)
+                            # self.region_check(img_list[2], frame, crop=self.crop)
 
                         if not self.is_recording and not self.output_ready:
                             self.setup_output()
@@ -768,17 +793,18 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
                     if self.is_recording and self.output_container:
                         print(f'Error processing frame: {e}')
                         print('Closing output container')
-                        try:
-                            self.is_recording = False
-                            self.output_ready = False
-                            self.input_container.close()
-                            self.output_container.close()
-                            # sys.exit(1)
-                            # pass
-                        except:
-                            self.input_container.close()
-                            # sys.exit(1)
-                            # pass
+                        # try:
+                        #     self.is_recording = False
+                        #     self.output_ready = False
+                        #     self.input_container.close()
+                        #     self.output_container.close()
+                        #     # sys.exit(1)
+                        #     # pass
+                        # except:
+                        #     self.input_container.close()
+                        #     # sys.exit(1)
+                        #     # pass
+                        self.close()
                     else:
                         print(f'Error processing frame: {e}')
                         self.input_container.close()
@@ -787,16 +813,17 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
         except KeyboardInterrupt:
             print("Recording stopped by user")
         
-        try:
-            if self.output_stream and self.output_container:
-                for packet in self.output_stream.encode():
-                    self.output_container.mux(packet)
-                    self.output_container.close()
-        except Exception as e:
-            print(f'Error while cleaning up output stream: {e}')
-
-        self.input_container.close()
-        self.ocr_processor.stop()
+        # try:
+        #     if self.output_stream and self.output_container:
+        #         for packet in self.output_stream.encode():
+        #             self.output_container.mux(packet)
+        # except Exception as e:
+        #     print(f'Error while cleaning up output stream: {e}')
+        #
+        # self.input_container.close()
+        # self.output_container.close()
+        # self.ocr_processor.stop()
+        self.close()
 
 
 
@@ -819,7 +846,21 @@ PREVIOUS FRAME: {np.sum(self.previous_frame)}
             return True
         else:
             return False
+    
+    def close(self):
+        print(f'{WARNING} Cleaning up the recorder object....')
+        try:
+            if self.output_stream and self.output_container:
+                for packet in self.output_stream.encode():
+                    self.output_container.mux(packet)
+        except Exception as e:
+            print(f'{ERROR} Error while cleaning up output stream: {e}')
 
+        self.input_container.close()
+        self.output_container.close()
+        self.ocr_processor.stop()
+
+        print(f'{STOP} All streams and containers closed!')
 
 #
 #

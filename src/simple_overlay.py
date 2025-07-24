@@ -14,7 +14,7 @@ def find(name, path):
 
 
 class SimpleOverlay:
-    def __init__(self, video_path, x, y, width=None, height=None, duration=None):
+    def __init__(self, x, y, video_path=None, width=None, height=None, duration=None):
         self.video_path = video_path
         self.x = x
         self.y = y
@@ -38,7 +38,8 @@ class SimpleOverlay:
 
 
     def _play_video(self):
-        INPUT_PATH = 'overlay\\Desktop.mp4'        
+        # INPUT_PATH = 'overlay\\Desktop.mp4'        
+        INPUT_PATH = ''        
         
         # NOTE Add check to confirm if overlay path and sub dirs exists and create path if they don't
         if self.player_name:
@@ -51,6 +52,8 @@ class SimpleOverlay:
             # print(f'INPUT PATH IN PLAY VIDEO: {INPUT_PATH}')
             if not INPUT_PATH:
                 print(f'{ERROR}Player name: {self.player_name + str(index)} not found in path') 
+                #TODO Check if this returns to the main menu
+                return
             else:
                 print(f'Found: {INPUT_PATH}')
 
@@ -61,6 +64,7 @@ class SimpleOverlay:
                 '-i', INPUT_PATH,
                 '-left', str(self.x + 40),
                 '-top', str(self.y + 150),
+                # NOTE: We can use self.duration here if needed. 
                 '-autoexit',
                 '-ss', '0.5'
                 # '-t',

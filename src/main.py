@@ -1,52 +1,45 @@
-import os
+# import os
 import sys
 from os import system
-from recording import ScreenRecorder
-from merge_files import merge_files
-from global_vars import MENU_TXT, SUCCESS, ERROR
-
-SOURCE = "output"
+from main_helper import def_cap, custom_cap, live_full, live_crop, merge
+from global_vars import MENU_TXT
 
 def main():
 
     while(True):
-
         system('cls')
         print(MENU_TXT)
         choice = input()
-        buffer = 0
-        fps = 0
-
         system('cls')
 
         # Default capture
         if choice == '1':
-            recorder = ScreenRecorder()
-            recorder.capture_frames()
-            recorder.process_frames()
-            input('\npress any key to enter menu....')
+            def_cap()
+
         # Custom capture
         elif choice == '2':
-            buffer = int(input('Buffer: '))
-            fps = int(input('FPS: '))
-            recorder = ScreenRecorder(buffer_seconds=buffer, fps=fps)
-            recorder.capture_frames()
-            recorder.process_frames()
-            input('\npress any key to enter menu....')
-        # Merge files
+            custom_cap()
+
+        # Live recording fullscreen
         elif choice == '3':
-            try:
-                if merge_files(SOURCE):
-                    print(f'{SUCCESS} Files merged successfully!')
-            except Exception as e:
-                print(f'{ERROR} Error merging or deleting files: {e}')
-            input('\npress any key to enter menu....')
-        # Exit
+            live_full()
+
+        # Live recording crop
         elif choice == '4':
+            live_crop()
+
+        # Merge files
+        elif choice == '5':
+            merge_files()
+
+        # Exit
+        elif choice == '6':
+            print('Szia!')
+            input()
             system('cls')
             sys.exit(1)
 
-        system('cls')
+        # system('cls')
 
 if __name__ == "__main__":
     main()

@@ -4,6 +4,9 @@ import time
 import concurrent.futures
 from dataclasses import dataclass
 
+
+from global_vars import WARNING, SUCCESS, STOP, START, ERROR
+
 @dataclass
 class OCRResult:
     """Data class to store OCR detection results"""
@@ -356,12 +359,11 @@ class ThreadedOCRProcessor:
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"Coordinator error: {e}")
+                print(f'{ERROR} Coordinator error: {e}')
                 continue
     
     def stop(self):
-        """Stop all worker threads"""
-        print("Stopping OCR processor...")
+        print(f'\n{WARNING} Stopping OCR processor...')
         self.running = False
         
         # Wait for threads to finish
@@ -374,7 +376,7 @@ class ThreadedOCRProcessor:
         if self.coordinator_thread.is_alive():
             self.coordinator_thread.join(timeout=2.0)
         
-        print("OCR processor stopped")
+        print(f'{STOP} OCR processor stopped')
 
 
 
