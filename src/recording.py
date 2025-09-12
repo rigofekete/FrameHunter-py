@@ -53,7 +53,7 @@ class ScreenRecorder:
         self.input_container = None
         self.output_container = None
         self.output_stream = None
-        self.input_stream = None
+        # self.input_stream = None
         self.output_ready = False
         self.output_index = 1
 
@@ -131,7 +131,7 @@ class ScreenRecorder:
                 print("rect is null")
                 self.ocr_processor.stop()
                 return False
-            
+
             self.targets = crop_regions(self.window)
             # print(f'targets 0 : {self.targets[0]}')
             #
@@ -139,22 +139,15 @@ class ScreenRecorder:
             # print(f'VIDEO SIZE: {video_size}')
             print(f'X and Y SIZE: {global_vars.X} , {global_vars.Y}')
 
-
             self.input_container = av.open('desktop',
                                             format='gdigrab',
                                             mode='r',
                                             options={
                                                 'framerate': str(self.fps),
-                                                # 'probesize': '100M',      # Larger buffer
-                                                # 'analyzeduration': '0',   # Skip analysis
-                                                # 'fflags': 'nobuffer',     # Reduce buffering
                                                 'offset_x': str(global_vars.X),
                                                 'offset_y': str(global_vars.Y),
                                                 'video_size': video_size,  
-                                                # 'video_size': '1920x1080',  
-                                                # 'video_size': f'{width}x{height}',  
                                                 'show_region': '0',
-                                                # 'draw_mouse': '0',
                                             }
                                     )
 
@@ -232,6 +225,7 @@ class ScreenRecorder:
 
             except Exception as e:
                 print(f"Failed to prepare output stream: {e}")
+                # TODO Check this 
                 import traceback
                 traceback.print_exc()
                 return False
@@ -431,7 +425,6 @@ class ScreenRecorder:
             
         elif (self.is_recording and not self.stop_recording and
               (not self.detect_changes_trigger_end(nameplate_arr))):
-            # ... your existing recording logic ...
             print('Saving live recording to the main thread output container')
             now = time.time()
             elapsed_time = now - self.start_time
@@ -754,18 +747,7 @@ class ScreenRecorder:
                         # print(f'MIN REGION ARRAY: {min_region}')
                         img_list = [nameplate_region, min_region, name_region]
 
-                        # x = self.targets[1]['x'] 
-                        # y = self.targets[1]['y'] 
-                        # width = self.targets[1]['width']
-                        # height = self.targets[1]['height']
-                        # score_region_left = img_arr[y:y+height, x:x+width]
 
-                        # x = self.targets[2]['x'] 
-                        # y = self.targets[2]['y'] 
-                        # width = self.targets[2]['width']
-                        # height = self.targets[2]['height']
-                        # score_region_right = img_arr[y:y+height, x:x+width]
-                      
                         try:
                             self.frame_queue.put_nowait(frame)
                         except queue.Full:

@@ -76,13 +76,16 @@ def crop_regions(window):
     # TODO: Because of that, lets think if there is any need to have global variables for x,y,w,h
 
     if window == PES2:
-        # Complete nameplate region
+        # # Complete nameplate region
+        # x_nameplate = global_vars.X + 930
+        # y_nameplate = global_vars.Y + 1820
+
         x_nameplate = 930
         y_nameplate = 1820
 
-        width_nameplate = global_vars.WIDTH // 2 - 1110 
-        # height_nameplate = global_vars.HEIGHT // 10 - 140 
-        height_nameplate = global_vars.HEIGHT // 2 - 980
+        width_nameplate = global_vars.WIDTH // 2 - 1110  
+        height_nameplate = global_vars.HEIGHT // 10 - 140 
+        # height_nameplate = global_vars.HEIGHT // 2 - 980 
         # always make sure values are even!
         width_nameplate = width_nameplate - (width_nameplate % 2)
         height_nameplate = height_nameplate - (height_nameplate % 2)
@@ -153,6 +156,49 @@ def crop_regions(window):
         # always make sure values are even!
         width_name = width_name - (width_name % 2)
         height_name = height_name - (height_name % 2)
+
+    elif window == WE6FE:
+        # # Complete nameplate region
+        # x_nameplate = global_vars.X + 930
+        # y_nameplate = global_vars.Y + 1820
+
+        x_nameplate = 930
+        y_nameplate = 1820
+
+        width_nameplate = global_vars.WIDTH // 2 - 1110  
+        height_nameplate = global_vars.HEIGHT // 10 - 140 
+        # height_nameplate = global_vars.HEIGHT // 2 - 980 
+        # always make sure values are even!
+        width_nameplate = width_nameplate - (width_nameplate % 2)
+        height_nameplate = height_nameplate - (height_nameplate % 2)
+
+        ####################
+        # Min. Goal region #
+        ####################
+        
+        x_min = global_vars.WIDTH // 2 + 50
+        y_min = 320 
+        width_min = global_vars.WIDTH // 2 - 1090   
+        height_min = global_vars.HEIGHT // 2 - 950  
+
+        # always make sure values are even!
+        width_min = width_min - (width_min % 2)
+        height_min = height_min - (height_min % 2)
+
+        ###########################
+        # Goal Scorer Player Name #
+        ###########################
+
+        x_name = global_vars.WIDTH // 2 - 390
+        y_name = global_vars.HEIGHT - 380
+
+        width_name = global_vars.WIDTH // 6  
+        height_name = global_vars.HEIGHT // 10 - 120 
+
+        # always make sure values are even!
+        width_name = width_name - (width_name % 2)
+        height_name = height_name - (height_name % 2)
+
 
     return [
         {

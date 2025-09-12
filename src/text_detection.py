@@ -20,7 +20,6 @@ class TextDetector:
             print(f'Undefined path to tesseract.exe. Check if OCR is installed in you OS. Error: {e}')
             sys.exit(1)
 
-        # OCR configuration with PSM 10 Mode, ideal for single character detection 
         self.ocr_config = '--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '
 
         # self.ocr_config_score = '--psm 10 -c tessedit_char_whitelist=0123456789O '
