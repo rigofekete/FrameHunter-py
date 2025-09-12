@@ -34,7 +34,7 @@ def main():
 
         # Exit
         elif choice == '6':
-            print('Szia!')
+            print('Terminating program...')
             input()
             system('cls')
             sys.exit(1)
