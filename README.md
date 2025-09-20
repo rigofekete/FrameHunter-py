@@ -1,3 +1,7 @@
+# HIGHLIGHTS
+
+## Description
+
 Prototype program written in Python, using the PyAV(FFmpeg) and OCR (Tesseract) libraries. This was built to detect text or frame data of a given region coordinate, from a video input stream (window capture or video file), and trigger automatic frame recording into an output file of any given format. 
 
 More detailed information about use cases will be added soon but I can provide a simple example:
