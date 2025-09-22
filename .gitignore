@@ -1,5 +1,4 @@
 venv/
-.venv/
 merger/
 src/Session.vim
 merged_videos/
@@ -8,4 +7,5 @@ notes/
 overlay/
 db/
 live/
+
 
