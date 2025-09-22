@@ -13,13 +13,19 @@ if &shortmess =~ 'A'
 else
   set shortmess=aoO
 endif
-badd +0 src/recording.py
-badd +0 src/threaded_ocr.py
-badd +0 src/text_detection.py
+badd +1 src/recording.py
+badd +1 src/threaded_ocr.py
+badd +1 src/text_detection.py
+badd +0 src/main.py
+badd +0 src/main_helper.py
+badd +0 src/window_config.py
 argglobal
 %argdel
 $argadd src/recording.py
 set stal=2
+tabnew +setlocal\ bufhidden=wipe
+tabnew +setlocal\ bufhidden=wipe
+tabnew +setlocal\ bufhidden=wipe
 tabnew +setlocal\ bufhidden=wipe
 tabnew +setlocal\ bufhidden=wipe
 tabrewind
@@ -35,12 +41,75 @@ setlocal foldnestmax=20
 setlocal foldenable
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 738 - ((36 * winheight(0) + 31) / 63)
+let s:l = 698 - ((5 * winheight(0) + 29) / 59)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 738
-normal! 049|
+keepjumps 698
+normal! 045|
+lcd /mnt/c/dev/highlights/src
+tabnext
+edit /mnt/c/dev/highlights/src/window_config.py
+argglobal
+balt /mnt/c/dev/highlights/src/recording.py
+setlocal foldmethod=manual
+setlocal foldexpr=0
+setlocal foldmarker={{{,}}}
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldenable
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 105 - ((31 * winheight(0) + 29) / 59)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 105
+normal! 041|
+lcd /mnt/c/dev/highlights/src
+tabnext
+edit /mnt/c/dev/highlights/src/main.py
+argglobal
+balt /mnt/c/dev/highlights/src/recording.py
+setlocal foldmethod=manual
+setlocal foldexpr=0
+setlocal foldmarker={{{,}}}
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldenable
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 5 - ((4 * winheight(0) + 29) / 59)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 5
+normal! 0
+lcd /mnt/c/dev/highlights/src
+tabnext
+edit /mnt/c/dev/highlights/src/main_helper.py
+argglobal
+balt /mnt/c/dev/highlights/src/main.py
+setlocal foldmethod=manual
+setlocal foldexpr=0
+setlocal foldmarker={{{,}}}
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldenable
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 62 - ((43 * winheight(0) + 29) / 59)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 62
+normal! 0
 lcd /mnt/c/dev/highlights/src
 tabnext
 edit /mnt/c/dev/highlights/src/threaded_ocr.py
@@ -56,11 +125,11 @@ setlocal foldnestmax=20
 setlocal foldenable
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 545 - ((62 * winheight(0) + 31) / 63)
+let s:l = 1 - ((0 * winheight(0) + 29) / 59)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 545
+keepjumps 1
 normal! 0
 lcd /mnt/c/dev/highlights/src
 tabnext
@@ -77,12 +146,12 @@ setlocal foldnestmax=20
 setlocal foldenable
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 31 - ((24 * winheight(0) + 31) / 63)
+let s:l = 240 - ((58 * winheight(0) + 29) / 59)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 31
-normal! 014|
+keepjumps 240
+normal! 023|
 lcd /mnt/c/dev/highlights/src
 tabnext 1
 set stal=1

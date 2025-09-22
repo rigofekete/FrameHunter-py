@@ -1,5 +1,6 @@
 venv/
 merger/
+src/Session.vim
 merged_videos/
 output/
 notes/

@@ -1,33 +1,69 @@
-# HIGHLIGHTS
+# FrameHunter-py
 
-## Description
+**Event-driven video capture and auto-editing with OCR and frame-diff (Python, PyAV/FFmpeg, Tesseract)**
 
-Prototype program written in Python, using the PyAV(FFmpeg) and OCR (Tesseract) libraries. This was built to detect text or frame data of a given region coordinate, from a video input stream (window capture or video file), and trigger automatic frame recording into an output file of any given format. 
+---
 
-More detailed information about use cases will be added soon but I can provide a simple example:
+## 📌 Description
+A Python tool that watches a video/window stream, detects on-screen events via OCR or pixel-change in a defined region, and instantly records clips—optionally merging them into a styled final edit.
 
-- Imagine I want to play a sports broadcast on my desktop using either a browser or a media player and I want my program to start recording the content whenever a specific event is shown on the screen, for example, every time the scoreboard of a football game is displayed on a certain position (which will be inspected frame by frame). 
+---
 
-- This program will collect the window coordinates of the given window title name which will then get captured to a video input stream.
+## 📖 Overview
+FrameHunter-py monitors a window or file input, inspects a target region frame-by-frame, and triggers recording when thresholds are met (pixel-diff) or specified text is detected (OCR).  
+It uses a circular buffer to capture the previous **N seconds** for instant replay-style clips.  
+Finally, it can batch-merge generated clips into a single video with predefined aesthetic options for automated editing workflows.
 
-- We can then select a specific region of that captured input stream and inspect its the pixel count, frame by frame, to detect if a change occurred.
+---
 
-- We can also use the text recognition feature to detect given words/names/sequences of characters on the frame.
+## ✨ Key Features
+- 📝 **OCR-based text/event detection** (Tesseract)  
+- 🎞️ **Region-based pixel-change detection** with min/max thresholds  
+- ⏮️ **Circular buffer** to record last *N* seconds on trigger  
+- 📦 **Output to common formats** via PyAV/FFmpeg  
+- 🎨 **Optional post-processing**: merge clips with styling presets  
 
-- These detections will then trigger the program to record the input stream content immediately to the designated output stream (to be generated file) whenever the inspected frame region pixel count is within the given min/max threshold or whenever a specified piece of text is detected. 
+---
+
+## 💡 Example Use Case
+Record every scoreboard change or player name appearance during a live sports stream by watching a fixed screen region.  
+Detected events automatically produce clips and compile into a highlight reel.
+
+---
+
+## 🚀 Quickstart (Windows PowerShell / Command Prompt)
+
+1. **Clone the repository**
+   ```powershell
+   git clone https://github.com/your-username/py-ReCap.git
+   cd py-ReCap
+   ```
+
+2. **Set up a Python virtual environment** (recommended)
+   ```powershell
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```powershell
+   pip install -r requirements.txt
+   ```
+
+4. **Run the program**
+   ```powershell
+   run
+   ```
+
+✅ The program will start monitoring according to your configuration (regions, OCR patterns, thresholds, etc.).  
+You can edit these values in the src\window_config.py and src\text_detection.py file. 
 
 
-******************************************************************************************
+---
 
-*Implemented features*:
-
-
-- Text recognition logic using OCR
-
-- Circular buffer logic in order to record last x seconds of the captured input whenever the detection is triggered (sort of an *Instant Replay* but with more custom options to manipulate).
-
-- Possibility to merge all the generated output files into a single edited video, with different aesthetic possibilities. This is the main idea and goal of the whole thing. I want the captured video segments to be automatically edited with pre defined aesthetic options, behaving like an automated video editing tool.
-
-******************************************************************************************
+## 📝 Notes
+- Works with **window capture** or **video files**  
+- Configurable **regions, thresholds, and text patterns**  
+- Demo GIF/screenshot here → *(Add a short clip or GIF showing a trigger and resulting clip)*  
 
 

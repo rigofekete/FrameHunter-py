@@ -199,47 +199,10 @@ class TextDetector:
 
         # Add target patterns of single chars
         patterns = [
-            # ("S.", 1),
             ("CONCEICAO", 1),
-            # ("conceicao", 1),
             ("PAULETA", 1),
-            # ("Pauleta", 1),
-            # ("pauleta", 1),
-            # ("Joao", 1),
             ("JOAO", 1),
-            # ("pinto", 1),
-            # ("Pinto", 1),
             ("PINTO", 1),
-            # ("S. CONCEICAO", 1),
-            # ("S.CONCEICAO", 1),
-            # ("S.Conceicao", 1),
-            # ("S. Conceicao", 1),
-            # ("Bierhoff", 1),
-            # ("BIERHOFF", 1),
-            # ("S. CONCEICAO", 1),
-            # ("S. CONCEICAO", 1),
-            # ("S.CONCEICAO", 1),
-            # ("S.Conceicao", 1),
-            # ("S. Conceicao", 1),
-            # ("Gujovic", 1),
-            # ("GUJOVIC", 1),
-            # ("gujovic", 1),
-            # ("GIULY", 1),
-            # ("Giuly", 1),
-            # ("8Giuly", 1),
-            # ("8GIULY", 1),
-            # ("8 GIULY", 1),
-            # ("8 Giuly", 1),
-            # ("O", 1),
-            # ("1", 1),
-            # ("2", 1),
-            # ("3", 1),
-            # ("4", 1),
-            # ("5", 1),
-            # ("6", 1),
-            # ("7", 1),
-            # ("8", 1),
-            # ("9", 1),
         ]
 
         cursor.executemany(
@@ -254,6 +217,8 @@ class TextDetector:
     def detect_char_in_region(self, nameplate_region):
         """Detect letters in cropped region"""
         try:
+
+            print(f'LOG: nameplate_region value: {nameplate_region}')
 
             # Upscale the region first
             # Experiment with different values (2-4 typically work well)

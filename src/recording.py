@@ -21,7 +21,7 @@ from simple_overlay import SimpleOverlay
 from threaded_ocr import ThreadedOCRProcessor
 
 from global_vars import (
-        PCSX2, PES2, WE6, WE6FE, 
+        PCSX2, PES2, WE6, DAZN1_VLC, 
         OUTPUT_FOLDER, OVERLAY_PATH, LIVE_FOLDER, 
         MAX_REC_LIMIT, BLACK_FRAME, 
         LIVE, FULL,
@@ -117,9 +117,6 @@ class ScreenRecorder:
     def capture_frames(self):
         try:
             rect = get_dpi_aware_window_rect(self.window)
-            # rect = get_dpi_aware_window_rect(WE6)
-            # rect = get_dpi_aware_window_rect(WE6FE)
-            # rect = get_dpi_aware_window_rect(PCSX2)
             if rect:
                 print(f"Calculating rect....")
                 global_vars.X, global_vars.Y, right, bottom = rect
@@ -164,7 +161,8 @@ class ScreenRecorder:
             # print(f"Actual input FPS from gdigrab: {fps:.2f}")
         except Exception as e:
             print(f'Error setting up window config and input container and stream: {e}')
-            return False
+            sys.exit(1)
+            # return False
             # sys.exit(1)
         return True
      
@@ -338,7 +336,7 @@ class ScreenRecorder:
         # in case we want to see exactly what region we are checking in the output
         if crop == 'yes':
             self.cropped_frame = av.VideoFrame.from_ndarray(img_to_inspect, format='bgr24')
-            # print(f'Cropped frame: {self.cropped_frame}')
+            print(f'Cropped frame: {self.cropped_frame}')
 
         if self.current_pts <= self.last_pts:
             return
@@ -363,7 +361,7 @@ class ScreenRecorder:
 
         self.last_pts = self.current_pts
 
-        # print(f"Encoded frame with PTS={frame.pts}")
+        print(f"Encoded frame with PTS={frame.pts}")
 
         self.previous_frame = img_to_inspect
 
@@ -376,6 +374,8 @@ class ScreenRecorder:
             raise Exception(f'img_list should have 3 elements/frame crops. Current size: {len(img_list)}')
 
         nameplate_arr, min_arr, player_arr = img_list
+
+        print(f'NAMEPLATE_ARR: {nameplate_arr}')
 
         # Process any new OCR results (non-blocking)
         new_results = self.ocr_processor.get_new_results()
@@ -726,6 +726,9 @@ class ScreenRecorder:
                         # TODO: Check why do we need to use numpy to convert frame to array 
                         img_arr = frame.to_ndarray(format='bgr24') 
 
+
+                        print(f'TARGET 1 : {self.targets[0]}')
+
                         # Define the cropping frame region 
                         x = self.targets[0]['x'] 
                         y = self.targets[0]['y'] 
@@ -746,7 +749,6 @@ class ScreenRecorder:
                         name_region = img_arr[y:y+height, x:x+width]
                         # print(f'MIN REGION ARRAY: {min_region}')
                         img_list = [nameplate_region, min_region, name_region]
-
 
                         try:
                             self.frame_queue.put_nowait(frame)
@@ -789,6 +791,7 @@ class ScreenRecorder:
                         self.close()
                     else:
                         print(f'Error processing frame: {e}')
+                        sys.exit(1)
                         self.input_container.close()
                         # sys.exit(1)
                         # pass

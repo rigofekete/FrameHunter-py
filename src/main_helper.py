@@ -5,7 +5,7 @@ from global_vars import (
         MENU_TXT, WIN_TXT, MODE_TXT,
         LIVE, FULL,
         SUCCESS, ERROR, WARNING, START,
-        PES2, WE6, WE6FE 
+        PES2, WE6, DAZN1_VLC 
 )
 
 SOURCE = "output"
@@ -16,7 +16,7 @@ def switch(window):
     elif window == 2:
         return WE6
     elif window == 3:
-        return WE6FE
+        return DAZN1_VLC
     else:
         print('Invalid option')
         return None

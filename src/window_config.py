@@ -6,7 +6,7 @@ import ctypes
 
 import global_vars
 from global_vars import ( 
-        PCSX2, PES2, WE6, WE6FE,
+        PCSX2, PES2, WE6, DAZN1_VLC,
         ERROR, START, SUCCESS
 )
 
@@ -80,10 +80,13 @@ def crop_regions(window):
         # x_nameplate = global_vars.X + 930
         # y_nameplate = global_vars.Y + 1820
 
-        x_nameplate = 930
-        y_nameplate = 1820
+        x_nameplate = 830
+        # x_nameplate = 930
+        y_nameplate = 1720
+        # y_nameplate = 1820
 
-        width_nameplate = global_vars.WIDTH // 2 - 1110  
+        width_nameplate = global_vars.WIDTH // 2 - 1000  
+        # width_nameplate = global_vars.WIDTH // 2 - 1110  
         height_nameplate = global_vars.HEIGHT // 10 - 140 
         # height_nameplate = global_vars.HEIGHT // 2 - 980 
         # always make sure values are even!
@@ -157,16 +160,16 @@ def crop_regions(window):
         width_name = width_name - (width_name % 2)
         height_name = height_name - (height_name % 2)
 
-    elif window == WE6FE:
+    elif window == DAZN1_VLC:
         # # Complete nameplate region
         # x_nameplate = global_vars.X + 930
         # y_nameplate = global_vars.Y + 1820
 
         x_nameplate = 930
-        y_nameplate = 1820
+        y_nameplate = 650
 
-        width_nameplate = global_vars.WIDTH // 2 - 1110  
-        height_nameplate = global_vars.HEIGHT // 10 - 140 
+        width_nameplate = global_vars.WIDTH // 2  
+        height_nameplate = global_vars.HEIGHT // 2  
         # height_nameplate = global_vars.HEIGHT // 2 - 980 
         # always make sure values are even!
         width_nameplate = width_nameplate - (width_nameplate % 2)
