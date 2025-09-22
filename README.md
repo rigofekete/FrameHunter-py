@@ -41,8 +41,8 @@ Detected events automatically produce clips and compile into a highlight reel.
 
 2. **Set up a Python virtual environment** (recommended)
    ```powershell
-   python -m venv .venv
-   .venv\Scripts\activate
+   python -m venv venv
+   venv\Scripts\activate
    ```
 
 3. **Install dependencies**
