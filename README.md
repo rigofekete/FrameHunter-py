@@ -4,28 +4,28 @@
 
 ---
 
-## 📌 Description
+## Description
 A Python tool that watches a video/window stream, detects on-screen events via OCR or pixel-change in a defined region, and instantly records clips—optionally merging them into a styled final edit.
 
 ---
 
-## 📖 Overview
+## Overview
 FrameHunter-py monitors a window or file input, inspects a target region frame-by-frame, and triggers recording when thresholds are met (pixel-diff) or specified text is detected (OCR).  
 It uses a circular buffer to capture the previous **N seconds** for instant replay-style clips.  
 Finally, it can batch-merge generated clips into a single video with predefined aesthetic options for automated editing workflows.
 
 ---
 
-## ✨ Key Features
-- 📝 **OCR-based text/event detection** (Tesseract)  
-- 🎞️ **Region-based pixel-change detection** with min/max thresholds  
-- ⏮️ **Circular buffer** to record last *N* seconds on trigger  
-- 📦 **Output to common formats** via PyAV/FFmpeg  
-- 🎨 **Optional post-processing**: merge clips with styling presets  
+## Key Features
+- **OCR-based text/event detection** (Tesseract)  
+- **Region-based pixel-change detection** with min/max thresholds  
+- **Circular buffer** to record last *N* seconds on trigger  
+- **Output to common formats** via PyAV/FFmpeg  
+- **Optional post-processing**: merge clips with styling presets  
 
 ---
 
-## 💡 Example Use Case
+## Example Use Case
 Record every scoreboard change or player name appearance during a live sports stream by watching a fixed screen region.  
 Detected events automatically produce clips and compile into a highlight reel.
 
