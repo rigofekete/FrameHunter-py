@@ -55,6 +55,7 @@ Detected events automatically produce clips and compile into a highlight reel.
    run
    ```
 
+
 ✅ The program will start monitoring according to your configuration (regions, OCR patterns, thresholds, etc.).  
 You can edit these values in the src\window_config.py and src\text_detection.py files. 
 
