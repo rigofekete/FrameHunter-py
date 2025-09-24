@@ -56,14 +56,8 @@ Detected events automatically produce clips and compile into a highlight reel.
    ```
 
 ✅ The program will start monitoring according to your configuration (regions, OCR patterns, thresholds, etc.).  
-You can edit these values in the src\window_config.py and src\text_detection.py file. 
+You can edit these values in the src\window_config.py and src\text_detection.py files. 
 
 
----
-
-## 📝 Notes
-- Works with **window capture** or **video files**  
-- Configurable **regions, thresholds, and text patterns**  
-- Demo GIF/screenshot here → *(Add a short clip or GIF showing a trigger and resulting clip)*  
 
 
