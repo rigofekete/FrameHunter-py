@@ -1,11 +1,13 @@
 venv/
 merger/
 src/Session.vim
+src/__pycache__
 merged_videos/
 output/
 notes/
 overlay/
 db/
 live/
+
 
 
